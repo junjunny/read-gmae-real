@@ -18,10 +18,14 @@ class _QA {
 }
 
 const _questions = <_QA>[
-  _QA('지금 얼마나 배고파?', ['살짝', '보통', '엄청']),
-  _QA('어떤 게 당겨?', ['뜨끈한 국물', '매콤한 거', '담백/건강식', '기름진 거', '아무거나']),
-  _QA('상황은?', ['집에서 배달', '밖에서 외식', '간단하게', '야식']),
-  _QA('맵기는?', ['안 매움', '적당히', '아주 맵게']),
+  _QA('누구랑 먹어?', ['혼자', '둘이', '여럿']),
+  _QA('어떻게 먹을까?', ['배달', '외식(나가서)', '직접 요리', '포장/픽업']),
+  _QA('1인 예산은?', ['~7천원', '~1.2만원', '~2만원', '2만원+']),
+  _QA('지금 배고픔은?', ['살짝', '보통', '많이']),
+  _QA('끌리는 종류?', ['한식', '중식', '일식', '양식', '분식', '아시안', '패스트푸드', '디저트/카페', '아무거나']),
+  _QA('맵기는?', ['안 매움', '약간', '보통', '아주 맵게']),
+  _QA('상황/기분은?', ['평범한 끼니', '데이트', '야식', '해장', '기념일', '스트레스 해소', '가볍게']),
+  _QA('식단 고려?', ['상관없음', '다이어트', '든든하게', '건강하게']),
 ];
 
 class _MenuRecommendScreenState extends State<MenuRecommendScreen> {
@@ -32,6 +36,7 @@ class _MenuRecommendScreenState extends State<MenuRecommendScreen> {
 
   final _points = PointsService();
   final _keyCtrl = TextEditingController();
+  final _avoidCtrl = TextEditingController(); // 피하고 싶은 것/최근 먹은 것
   bool _checkingKey = true;
   bool _hasKey = false;
   bool _savingKey = false;
@@ -83,19 +88,27 @@ class _MenuRecommendScreenState extends State<MenuRecommendScreen> {
       _error = null;
     });
     try {
-      final a = [
-        _questions[0].options[_answers[0]],
-        _questions[1].options[_answers[1]],
-        _questions[2].options[_answers[2]],
-        _questions[3].options[_answers[3]],
-      ];
-      final prompt = '''너는 커플을 위한 메뉴 추천 도우미야. 아래 조건으로 딱 하나의 메뉴를 추천해줘.
-- 배고픔: ${a[0]}
-- 당기는 것: ${a[1]}
-- 상황: ${a[2]}
-- 맵기: ${a[3]}
-한국에서 배달/외식 가능한 현실적인 메뉴로.
-출력은 정확히 이 형식 한 줄로만: "🍴 메뉴이름 — 추천 이유(25자 이내, 친근하게)"''';
+      final qa = [
+        for (var i = 0; i < _questions.length; i++) '- ${_questions[i].q.replaceAll('?', '')}: ${_questions[i].options[_answers[i]]}'
+      ].join('\n');
+      final avoid = _avoidCtrl.text.trim();
+      final method = _questions[1].options[_answers[1]];
+      final prompt = '''너는 한국 음식 메뉴 추천 전문가야. 아래 조건을 모두 반영해서 **메뉴 딱 하나**를 현실적으로 추천해줘.
+
+[조건]
+$qa
+${avoid.isEmpty ? '' : '- 피하고 싶은 것/최근 먹은 것: $avoid (이건 추천에서 제외)'}
+
+[반드시 지킬 규칙]
+1. "$method" 방식으로 실제 가능한 메뉴만 추천해. 특히 **배달이면 한국에서 진짜 배달되는 메뉴**만 (예: 샤브샤브·오마카세·뷔페·일부 횟집 등은 배달이 거의 안 되니 배달일 땐 제외).
+2. 예산과 인원, 맵기, 식단 고려를 현실적으로 맞춰.
+3. 상황/기분에 어울리게.
+4. 너무 뻔한 것(치킨/피자)만 반복하지 말고 센스있게, 가끔 구체적 메뉴명으로.
+
+[출력 형식] 정확히 아래 3줄로만:
+🍴 메뉴: (메뉴 이름)
+💡 이유: (왜 이게 딱인지 30자 이내, 친근하게)
+🏠 팁: (어디서/어떻게 먹으면 좋은지 25자 이내)''';
       final res = await GeminiService.generate(prompt);
       setState(() => _result = res);
     } catch (e) {
@@ -119,6 +132,22 @@ class _MenuRecommendScreenState extends State<MenuRecommendScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           for (var i = 0; i < _questions.length; i++) _buildQ(i),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('피하고 싶은 것 / 최근 먹은 것 (선택)', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _avoidCtrl,
+                    decoration: const InputDecoration(hintText: '예: 어제 치킨 먹음, 오이 싫어, 회 빼고', border: OutlineInputBorder(), isDense: true),
+                  ),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: (answered && !_loading) ? _recommend : null,
