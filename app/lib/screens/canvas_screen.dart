@@ -119,7 +119,8 @@ class _CanvasScreenState extends State<CanvasScreen> {
     }
     setState(() => _submitting = true);
     try {
-      final bytes = await _exportPng();
+      // 제출본은 Firestore 문서 용량(1MB) 내로 — 해상도를 낮춰 내보냄
+      final bytes = await _exportPng(pixelRatio: 2.0);
       if (bytes == null) return;
       final ok = await widget.onSubmit!(bytes);
       if (!mounted) return;

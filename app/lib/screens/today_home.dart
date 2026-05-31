@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -10,6 +9,7 @@ import '../services/room_service.dart';
 import '../services/session_prefs.dart';
 import '../util/daily_topic.dart';
 import '../util/users.dart';
+import '../widgets/entry_image.dart';
 import '../widgets/profile_avatar.dart';
 import 'canvas_screen.dart';
 
@@ -112,7 +112,7 @@ class _TodayEntries extends StatelessWidget {
                       children: [
                         AspectRatio(
                           aspectRatio: 1.4,
-                          child: CachedNetworkImage(imageUrl: e.imageUrl, fit: BoxFit.contain, placeholder: (_, __) => const Center(child: CircularProgressIndicator())),
+                          child: EntryImage(b64: e.imageB64),
                         ),
                         ListTile(
                           leading: const Icon(Icons.brush),

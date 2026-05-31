@@ -1,10 +1,10 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../app_state.dart';
 import '../models/entry.dart';
 import '../services/room_service.dart';
+import '../widgets/entry_image.dart';
 
 /// 달력 탭: 월별 달력에서 그림이 있는 날짜에 점 표시, 날짜를 누르면 그 날의 그림들.
 class CalendarScreen extends StatefulWidget {
@@ -158,7 +158,7 @@ class _EntryCard extends StatelessWidget {
         children: [
           AspectRatio(
             aspectRatio: 1.4,
-            child: CachedNetworkImage(imageUrl: entry.imageUrl, fit: BoxFit.contain, placeholder: (_, __) => const Center(child: CircularProgressIndicator())),
+            child: EntryImage(b64: entry.imageB64),
           ),
           ListTile(
             title: Text(entry.topic),

@@ -1,48 +1,41 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 
 import '../models/entry.dart';
 import '../util/users.dart';
 import 'session_prefs.dart';
 
-/// 방(초대코드) 단위로 그림을 저장/조회. 로그인 불필요.
+/// 방(초대코드) 단위 그림 저장/조회. Storage 없이 Firestore에 base64로 저장(무료).
 class RoomService {
   final _db = FirebaseFirestore.instance;
-  final _storage = FirebaseStorage.instance;
 
   String get _room => SessionPrefs.roomId ?? 'default';
 
   CollectionReference<Map<String, dynamic>> get _entries =>
       _db.collection('rooms').doc(_room).collection('entries');
 
-  /// 제출: PNG 업로드 → Firestore 문서 생성.
+  /// 제출: PNG 바이트를 base64로 Firestore 문서에 저장.
   Future<void> submit({
     required Uint8List pngBytes,
     required String topic,
     required String date,
   }) async {
     final docRef = _entries.doc();
-    final path = 'rooms/$_room/${docRef.id}.png';
-    final task = await _storage
-        .ref(path)
-        .putData(pngBytes, SettableMetadata(contentType: 'image/png'));
-    final url = await task.ref.getDownloadURL();
-
     final entry = Entry(
       id: docRef.id,
       author: nickOf(SessionPrefs.userId),
       authorId: SessionPrefs.userId ?? '',
       date: date,
       topic: topic,
-      imageUrl: url,
+      imageB64: base64Encode(pngBytes),
       createdAt: DateTime.now(),
     );
     await docRef.set(entry.toMap());
   }
 
-  /// 전체(최신순) — 달력 마킹/히스토리에 사용.
+  /// 전체(최신순).
   Stream<List<Entry>> watchAll() {
     return _entries
         .orderBy('createdAt', descending: true)

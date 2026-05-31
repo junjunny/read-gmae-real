@@ -7,7 +7,7 @@ class Entry {
   final String authorId; // 0421 / 0118 (포인트 적립 기준)
   final String date; // yyyy-MM-dd
   final String topic;
-  final String imageUrl;
+  final String imageB64; // PNG base64 (Storage 대신 Firestore에 직접 저장)
   final DateTime createdAt;
 
   Entry({
@@ -16,7 +16,7 @@ class Entry {
     required this.authorId,
     required this.date,
     required this.topic,
-    required this.imageUrl,
+    required this.imageB64,
     required this.createdAt,
   });
 
@@ -28,7 +28,7 @@ class Entry {
       authorId: d['authorId'] ?? '',
       date: d['date'] ?? '',
       topic: d['topic'] ?? '',
-      imageUrl: d['imageUrl'] ?? '',
+      imageB64: d['imageB64'] ?? '',
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
@@ -38,7 +38,7 @@ class Entry {
         'authorId': authorId,
         'date': date,
         'topic': topic,
-        'imageUrl': imageUrl,
+        'imageB64': imageB64,
         'createdAt': FieldValue.serverTimestamp(),
       };
 }

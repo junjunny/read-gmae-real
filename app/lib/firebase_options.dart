@@ -42,10 +42,11 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'YOUR_WEB_API_KEY',
-    appId: 'YOUR_WEB_APP_ID',
-    messagingSenderId: 'YOUR_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.appspot.com',
+    apiKey: 'AIzaSyALbDTIYzifONaAOf6Vm-HgStxFXIf63_Y',
+    appId: '1:902175981455:web:6cde16b67bcdbbedf895fa',
+    messagingSenderId: '902175981455',
+    projectId: 'jhss-b6d35',
+    authDomain: 'jhss-b6d35.firebaseapp.com',
+    storageBucket: 'jhss-b6d35.firebasestorage.app',
   );
 }
