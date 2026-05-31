@@ -14,7 +14,7 @@ class TapGame extends StatefulWidget {
 }
 
 class _TapGameState extends State<TapGame> {
-  static const _duration = 15;
+  static const _duration = 12;
   int _score = 0;
   int _left = _duration;
   bool _running = false;
@@ -86,10 +86,10 @@ class _TapGameState extends State<TapGame> {
                       child: GestureDetector(
                         onTap: _hit,
                         child: Container(
-                          width: 64,
-                          height: 64,
+                          width: 42,
+                          height: 42,
                           decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, shape: BoxShape.circle),
-                          child: const Icon(Icons.touch_app, color: Colors.white),
+                          child: const Icon(Icons.touch_app, color: Colors.white, size: 20),
                         ),
                       ),
                     )
@@ -97,7 +97,7 @@ class _TapGameState extends State<TapGame> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(_score > 0 ? '점수: $_score 🎉' : '15초 동안 최대한 많이 탭!', style: const TextStyle(fontSize: 18)),
+                          Text(_score > 0 ? '점수: $_score 🎉' : '12초 동안 작은 점을 최대한 많이 탭!', style: const TextStyle(fontSize: 18)),
                           const SizedBox(height: 12),
                           FilledButton(onPressed: _start, child: Text(_score > 0 ? '다시 하기' : '시작')),
                         ],

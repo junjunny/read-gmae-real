@@ -88,9 +88,14 @@ class _TetrisGameState extends State<TetrisGame> {
     _score = 0;
     _spawn();
     _running = true;
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(milliseconds: 600), (_) => _tick());
+    _restartTimer();
     setState(() {});
+  }
+
+  void _restartTimer() {
+    _timer?.cancel();
+    final ms = max(140, 430 - (_score ~/ 200) * 25); // 시작 빠르게 + 점수 오를수록 가속
+    _timer = Timer.periodic(Duration(milliseconds: ms), (_) => _tick());
   }
 
   void _spawn() {
@@ -136,7 +141,10 @@ class _TetrisGameState extends State<TetrisGame> {
         y++; // 같은 줄 재검사
       }
     }
-    if (cleared > 0) _score += [0, 100, 300, 500, 800][cleared];
+    if (cleared > 0) {
+      _score += [0, 100, 300, 500, 800][cleared];
+      _restartTimer(); // 점수 오르면 더 빠르게
+    }
   }
 
   void _tick() {

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../games/catch_game.dart';
 import '../games/color_game.dart';
 import '../games/game_2048.dart';
 import '../games/memory_game.dart';
+import '../games/piano_tiles_game.dart';
 import '../games/reaction_game.dart';
 import '../games/schulte_game.dart';
-import '../games/simon_game.dart';
+import '../games/stack_game.dart';
 import '../games/tap_game.dart';
 import '../games/tetris_game.dart';
 import '../games/whack_game.dart';
@@ -27,12 +27,12 @@ final List<_GameDef> _kGames = [
   _GameDef('reaction', '반응속도 🟢', '초록 되면 빨리 탭(5라운드)', (f) => ReactionGame(onFinish: f)),
   _GameDef('schulte', '순서 터치 🔢', '1→25 순서대로 빨리', (f) => SchulteGame(onFinish: f)),
   _GameDef('color', '색깔 맞추기 🎨', '글자의 "색"을 빠르게', (f) => ColorGame(onFinish: f)),
-  _GameDef('simon', '기억력 순서 🧠', '불빛 순서 따라하기', (f) => SimonGame(onFinish: f)),
-  _GameDef('tetris', '테트리스 🧱', '줄 지워서 점수', (f) => TetrisGame(onFinish: f)),
+  _GameDef('tetris', '테트리스 🧱', '줄 지워서 점수(가속)', (f) => TetrisGame(onFinish: f)),
   _GameDef('g2048', '2048 🔢', '밀어서 숫자 합치기', (f) => Game2048(onFinish: f)),
   _GameDef('memory', '카드 짝맞추기 🃏', '8쌍 빨리 맞추기', (f) => MemoryGame(onFinish: f)),
-  _GameDef('whack', '두더지 잡기 🔨', '두더지 탭, 폭탄 피하기', (f) => WhackGame(onFinish: f)),
-  _GameDef('catch', '하트 받기 💝', '바구니로 하트 받기', (f) => CatchGame(onFinish: f)),
+  _GameDef('whack', '두더지 잡기 🔨', '빠르게! 폭탄 피하기', (f) => WhackGame(onFinish: f)),
+  _GameDef('piano', '피아노 타일 🎹', '검은 타일 놓치지 말기', (f) => PianoTilesGame(onFinish: f)),
+  _GameDef('stack', '블록 쌓기 🏗️', '정확히 탭해서 쌓기', (f) => StackGame(onFinish: f)),
 ];
 
 /// 미니게임: 하루 동안 베스트 점수 갱신 → 자정(KST)에 자동 정산(승+10/패-5).

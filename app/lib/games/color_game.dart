@@ -16,7 +16,7 @@ const _colors = [Color(0xFFE53935), Color(0xFF1E88E5), Color(0xFF43A047), Color(
 
 class _ColorGameState extends State<ColorGame> {
   final _rng = Random();
-  int _score = 0, _left = 30;
+  int _score = 0, _left = 22;
   bool _running = false;
   Timer? _timer;
   int _wordIdx = 0; // 표시되는 글자(텍스트)
@@ -25,7 +25,7 @@ class _ColorGameState extends State<ColorGame> {
 
   void _start() {
     _score = 0;
-    _left = 30;
+    _left = 22;
     _running = true;
     _newRound();
     _timer?.cancel();
@@ -43,10 +43,8 @@ class _ColorGameState extends State<ColorGame> {
   void _newRound() {
     _wordIdx = _rng.nextInt(_names.length);
     _colorIdx = _rng.nextInt(_colors.length);
+    // 선택지 5개 전부(더 헷갈리게)
     _choices = List.generate(_colors.length, (i) => i)..shuffle(_rng);
-    _choices = _choices.take(4).toList();
-    if (!_choices.contains(_colorIdx)) _choices[0] = _colorIdx;
-    _choices.shuffle(_rng);
   }
 
   void _pick(int c) {
