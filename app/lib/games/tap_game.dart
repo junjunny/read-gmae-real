@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 
@@ -19,13 +20,9 @@ class _TapGameState extends State<TapGame> {
   bool _running = false;
   Timer? _timer;
   Alignment _target = Alignment.center;
-  int _seed = 12345;
+  final _rng = Random();
 
-  double _rand() {
-    // Math.random 사용 불가 환경 대비 자체 LCG
-    _seed = (_seed * 1103515245 + 12345) & 0x7fffffff;
-    return _seed / 0x7fffffff;
-  }
+  double _rand() => _rng.nextDouble();
 
   void _move() {
     _target = Alignment(_rand() * 1.6 - 0.8, _rand() * 1.6 - 0.8);

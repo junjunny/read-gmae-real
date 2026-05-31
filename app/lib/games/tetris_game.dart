@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 
@@ -78,12 +79,9 @@ class _TetrisGameState extends State<TetrisGame> {
   int _score = 0;
   bool _running = false;
   Timer? _timer;
-  int _seed = 98765;
+  final _rng = Random();
 
-  int _rand(int n) {
-    _seed = (_seed * 1103515245 + 12345) & 0x7fffffff;
-    return _seed % n;
-  }
+  int _rand(int n) => _rng.nextInt(n);
 
   void _reset() {
     _grid = List.generate(_rows, (_) => List.filled(_cols, -1));

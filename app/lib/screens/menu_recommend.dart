@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// 메뉴 추천: 몇 가지 질문에 답하면 추천 결과를 보여준다.
-/// (지금은 규칙 기반 추천. 추후 실제 AI API 연동 가능)
+import '../app_state.dart';
+import '../services/gemini_service.dart';
+import '../services/points_service.dart';
+
+/// 메뉴 추천: 질문에 답하면 Gemini(가장 빠른 flash-lite)가 메뉴를 추천.
 class MenuRecommendScreen extends StatefulWidget {
   const MenuRecommendScreen({super.key});
   @override
@@ -16,36 +19,99 @@ class _QA {
 
 const _questions = <_QA>[
   _QA('지금 얼마나 배고파?', ['살짝', '보통', '엄청']),
-  _QA('어떤 게 당겨?', ['뜨끈한 국물', '매콤한 거', '담백/건강식', '기름진 거']),
-  _QA('분위기는?', ['집에서 편하게', '밖에서 데이트', '간단하게']),
+  _QA('어떤 게 당겨?', ['뜨끈한 국물', '매콤한 거', '담백/건강식', '기름진 거', '아무거나']),
+  _QA('상황은?', ['집에서 배달', '밖에서 외식', '간단하게', '야식']),
   _QA('맵기는?', ['안 매움', '적당히', '아주 맵게']),
 ];
 
-// 키워드 → 후보 메뉴
-const Map<String, List<String>> _pool = {
-  '국물': ['김치찌개', '순두부찌개', '우동', '쌀국수', '라멘', '칼국수', '설렁탕'],
-  '매콤': ['떡볶이', '마라탕', '불닭', '낙지볶음', '닭갈비', '비빔냉면'],
-  '담백': ['샐러드', '연어덮밥', '초밥', '월남쌈', '김밥', '비빔밥'],
-  '기름': ['치킨', '피자', '햄버거', '돈까스', '족발', '곱창'],
-};
-
 class _MenuRecommendScreenState extends State<MenuRecommendScreen> {
   final List<int> _answers = List.filled(_questions.length, -1);
+  bool _loading = false;
   String? _result;
+  String? _error;
 
-  void _recommend() {
-    // 2번 질문(당기는 것)으로 풀 선택 + 배고픔/맵기로 살짝 가중
-    final craving = _answers[1];
-    final key = ['국물', '매콤', '담백', '기름'][craving < 0 ? 0 : craving];
-    var list = List<String>.from(_pool[key]!);
-    // 간단한 가변 선택 (질문 답 조합으로 인덱스 결정 — 매번 같은 답이면 같은 결과)
-    final seed = _answers.fold<int>(7, (a, b) => a * 31 + (b + 1));
-    final pick = list[seed.abs() % list.length];
-    setState(() => _result = pick);
+  final _points = PointsService();
+  final _keyCtrl = TextEditingController();
+  bool _checkingKey = true;
+  bool _hasKey = false;
+  bool _savingKey = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadKey();
+  }
+
+  Future<void> _loadKey() async {
+    if (!firebaseReady) {
+      setState(() {
+        _checkingKey = false;
+        _hasKey = false;
+      });
+      return;
+    }
+    try {
+      final k = GeminiService.apiKey ?? await _points.getGeminiKey();
+      GeminiService.apiKey = k;
+      setState(() {
+        _hasKey = GeminiService.hasKey;
+        _checkingKey = false;
+      });
+    } catch (_) {
+      setState(() => _checkingKey = false);
+    }
+  }
+
+  Future<void> _saveKey() async {
+    final k = _keyCtrl.text.trim();
+    if (k.isEmpty) return;
+    setState(() => _savingKey = true);
+    try {
+      await _points.setGeminiKey(k);
+      GeminiService.apiKey = k;
+      setState(() => _hasKey = true);
+    } catch (e) {
+      setState(() => _error = '키 저장 실패: $e');
+    } finally {
+      if (mounted) setState(() => _savingKey = false);
+    }
+  }
+
+  Future<void> _recommend() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final a = [
+        _questions[0].options[_answers[0]],
+        _questions[1].options[_answers[1]],
+        _questions[2].options[_answers[2]],
+        _questions[3].options[_answers[3]],
+      ];
+      final prompt = '''너는 커플을 위한 메뉴 추천 도우미야. 아래 조건으로 딱 하나의 메뉴를 추천해줘.
+- 배고픔: ${a[0]}
+- 당기는 것: ${a[1]}
+- 상황: ${a[2]}
+- 맵기: ${a[3]}
+한국에서 배달/외식 가능한 현실적인 메뉴로.
+출력은 정확히 이 형식 한 줄로만: "🍴 메뉴이름 — 추천 이유(25자 이내, 친근하게)"''';
+      final res = await GeminiService.generate(prompt);
+      setState(() => _result = res);
+    } catch (e) {
+      setState(() => _error = '추천 실패: $e\n(잠시 후 다시 시도해주세요)');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_checkingKey) {
+      return Scaffold(appBar: AppBar(title: const Text('메뉴 추천 🍽️')), body: const Center(child: CircularProgressIndicator()));
+    }
+    if (!_hasKey) return _keyGate();
+
     final answered = !_answers.contains(-1);
     return Scaffold(
       appBar: AppBar(title: const Text('메뉴 추천 🍽️')),
@@ -55,11 +121,17 @@ class _MenuRecommendScreenState extends State<MenuRecommendScreen> {
           for (var i = 0; i < _questions.length; i++) _buildQ(i),
           const SizedBox(height: 12),
           FilledButton.icon(
-            onPressed: answered ? _recommend : null,
-            icon: const Icon(Icons.auto_awesome),
-            label: Text(answered ? '추천 받기' : '질문에 모두 답해주세요'),
+            onPressed: (answered && !_loading) ? _recommend : null,
+            icon: _loading
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.auto_awesome),
+            label: Text(_loading ? 'AI가 고르는 중...' : (answered ? 'AI 추천 받기' : '질문에 모두 답해주세요')),
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
           ),
+          if (_error != null) ...[
+            const SizedBox(height: 16),
+            Text(_error!, style: const TextStyle(color: Colors.red)),
+          ],
           if (_result != null) ...[
             const SizedBox(height: 20),
             Card(
@@ -68,19 +140,46 @@ class _MenuRecommendScreenState extends State<MenuRecommendScreen> {
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [
-                    const Text('오늘의 추천 메뉴는!', style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    Text('🍴 $_result', style: Theme.of(context).textTheme.headlineMedium),
+                    const Text('✨ Gemini 추천', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    Text(_result!, style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
                     const SizedBox(height: 8),
-                    TextButton(onPressed: _recommend, child: const Text('다른 거 추천')),
+                    TextButton(onPressed: _loading ? null : _recommend, child: const Text('다른 거 추천')),
                   ],
                 ),
               ),
             ),
           ],
           const SizedBox(height: 12),
-          const Text('※ 지금은 답변 기반 추천이에요. 추후 진짜 AI 추천으로 업그레이드 가능!',
-              style: TextStyle(fontSize: 11, color: Colors.grey), textAlign: TextAlign.center),
+          const Text('⚡ gemini-flash-lite (가장 빠른 모델)', style: TextStyle(fontSize: 11, color: Colors.grey), textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+
+  Widget _keyGate() {
+    return Scaffold(
+      appBar: AppBar(title: const Text('메뉴 추천 🍽️')),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          const Text('🤖 Gemini API 키 한 번만 등록하면\nAI 메뉴 추천이 켜져요.', style: TextStyle(fontSize: 16), textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          const Text('키는 우리 비공개 DB에만 저장되고, 코드/공개 레포엔 안 들어갑니다.', style: TextStyle(fontSize: 12, color: Colors.grey), textAlign: TextAlign.center),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _keyCtrl,
+            decoration: const InputDecoration(labelText: 'Gemini API 키', hintText: 'AIza... 또는 AQ...', border: OutlineInputBorder()),
+          ),
+          if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.red))),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: _savingKey ? null : _saveKey,
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+            child: _savingKey ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('등록하고 시작'),
+          ),
+          const SizedBox(height: 12),
+          const Text('키 발급: https://aistudio.google.com/apikey', style: TextStyle(fontSize: 11, color: Colors.grey), textAlign: TextAlign.center),
         ],
       ),
     );

@@ -75,6 +75,18 @@ class PointsService {
     });
   }
 
+  DocumentReference<Map<String, dynamic>> get _configRef =>
+      _db.collection('rooms').doc(_room).collection('meta').doc('config');
+
+  /// Gemini API 키 (비공개 Firestore에만 저장).
+  Future<String?> getGeminiKey() async {
+    final s = await _configRef.get();
+    return s.data()?['geminiKey'] as String?;
+  }
+
+  Future<void> setGeminiKey(String key) =>
+      _configRef.set({'geminiKey': key}, SetOptions(merge: true));
+
   DocumentReference<Map<String, dynamic>> get _recordsRef =>
       _db.collection('rooms').doc(_room).collection('meta').doc('records');
 
