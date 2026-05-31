@@ -1,0 +1,11 @@
+{
+  "name": "grimpingpong-functions",
+  "description": "그림핑퐁 Cloud Functions (매일 주제 배포 + 그림 알림)",
+  "engines": { "node": "20" },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^6.1.0"
+  },
+  "private": true
+}
