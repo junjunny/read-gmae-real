@@ -43,45 +43,57 @@ class PointsService {
   }
 
   // ---- 미니게임 점수 ----
-  Stream<Map<String, int?>> watchGame(String key) => _gameRef(key).snapshots().map((d) {
+  /// 게임 상태: 두 사람의 현재 라운드 점수 + 최근 정산 결과 메시지.
+  Stream<Map<String, dynamic>> watchGame(String key) => _gameRef(key).snapshots().map((d) {
         final m = d.data() ?? {};
-        return {'0421': m['0421'] as int?, '0118': m['0118'] as int?};
+        return {
+          '0421': m['0421'] as int?,
+          '0118': m['0118'] as int?,
+          'lastResult': m['lastResult'] as String?,
+        };
       });
 
-  Future<void> submitScore(String key, String userId, int score) async {
-    // 더 높은 점수만 갱신(자기 베스트)
-    await _db.runTransaction((tx) async {
-      final s = await tx.get(_gameRef(key));
-      final prev = (s.data()?[userId] ?? -1) as int;
-      if (score > prev) tx.set(_gameRef(key), {userId: score}, SetOptions(merge: true));
-    });
-  }
+  static String _nick(String uid) => uid == '0421' ? '주니' : '히수';
 
-  /// 정산: 둘 다 점수 있으면 높은 쪽 +10, 낮은 쪽 -5, 점수 초기화. 결과 메시지 반환.
-  Future<String> settle(String key) async {
+  /// 점수 제출 → 둘 다 모이면 **자동 정산**(높은 점수 +10, 낮은 점수 -5, 라운드 초기화).
+  /// 반환: 정산 결과 메시지(상대 점수 없으면 '대기' 안내).
+  Future<String> submitScoreAuto(String key, String userId, int score) async {
+    final other = userId == '0421' ? '0118' : '0421';
     return _db.runTransaction((tx) async {
       final gRef = _gameRef(key);
       final g = await tx.get(gRef);
-      final s1 = g.data()?['0421'];
-      final s2 = g.data()?['0118'];
-      if (s1 == null || s2 == null) return '두 명 모두 점수가 있어야 정산돼요.';
-      final p = await tx.get(_pointsRef);
+      final p = await tx.get(_pointsRef); // 읽기는 쓰기 전에 모두
+      final otherScore = g.data()?[other];
+
+      if (otherScore == null) {
+        // 상대 점수 없음 → 내 점수만 기록(이전 정산 메시지는 지움)
+        tx.set(gRef, {userId: score, 'lastResult': FieldValue.delete()}, SetOptions(merge: true));
+        return '점수 $score점 등록! 상대가 플레이하면 자동 정산돼요.';
+      }
+
+      // 둘 다 있음 → 자동 정산
       final pd = Map<String, dynamic>.from(p.data() ?? {});
       int cur(String u) => (pd[u] ?? 0) as int;
-      final n1 = s1 as num;
-      final n2 = s2 as num;
+      final scores = {userId: score, other: (otherScore as num).toInt()};
+      final s0421 = scores['0421']!;
+      final s0118 = scores['0118']!;
       String msg;
-      if (n1 == n2) {
-        msg = '무승부! 포인트 변동 없음';
+      if (s0421 == s0118) {
+        msg = '무승부! (주니 $s0421 : 히수 $s0118) 변동 없음';
       } else {
-        final win = n1 > n2 ? '0421' : '0118';
+        final win = s0421 > s0118 ? '0421' : '0118';
         final lose = win == '0421' ? '0118' : '0421';
         pd[win] = cur(win) + 10;
         pd[lose] = cur(lose) - 5;
-        msg = '${win == '0421' ? '주니' : '히수'} +10 / ${lose == '0421' ? '주니' : '히수'} -5';
+        msg = '주니 $s0421 : 히수 $s0118 → ${_nick(win)} +10, ${_nick(lose)} -5';
       }
       tx.set(_pointsRef, pd);
-      tx.set(gRef, {'0421': FieldValue.delete(), '0118': FieldValue.delete()}, SetOptions(merge: true));
+      // 라운드 점수 초기화 + 결과 기록(둘 다 볼 수 있게)
+      tx.set(gRef, {
+        '0421': FieldValue.delete(),
+        '0118': FieldValue.delete(),
+        'lastResult': msg,
+      }, SetOptions(merge: true));
       return msg;
     });
   }
