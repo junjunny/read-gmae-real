@@ -8,4 +8,4 @@ int dPlus([DateTime? now]) {
   return b.difference(a).inDays + 1; // 만난 날 = 1일
 }
 
-String dPlusLabel([DateTime? now]) => 'D+${dPlus(now)}';
+String dPlusLabel([DateTime? now]) => '💙+${dPlus(now)}';
