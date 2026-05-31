@@ -14,6 +14,18 @@ class PointsService {
   DocumentReference<Map<String, dynamic>> _gameRef(String key) =>
       _db.collection('rooms').doc(_room).collection('games').doc(key);
 
+  DocumentReference<Map<String, dynamic>> get _profilesRef =>
+      _db.collection('rooms').doc(_room).collection('meta').doc('profiles');
+
+  /// 두 사람의 프로필 사진(base64) 공유.
+  Stream<Map<String, String?>> watchProfiles() => _profilesRef.snapshots().map((d) {
+        final m = d.data() ?? {};
+        return {'0421': m['0421'] as String?, '0118': m['0118'] as String?};
+      });
+
+  Future<void> setProfile(String userId, String b64) =>
+      _profilesRef.set({userId: b64}, SetOptions(merge: true));
+
   Stream<Map<String, int>> watchPoints() => _pointsRef.snapshots().map((d) {
         final m = d.data() ?? {};
         return {

@@ -14,7 +14,7 @@ import 'menu_recommend.dart';
 import 'minigames_screen.dart';
 import 'prize_screen.dart';
 
-/// 홈: [주니 포인트 | D+ | 히수 포인트] 헤더 + 4개 카테고리 카드.
+/// 홈: [주니(왼) | 💙+ | 히수(오)] 헤더(프로필+이름+포인트) + 4개 카테고리.
 class HomeDashboard extends StatefulWidget {
   const HomeDashboard({super.key});
   @override
@@ -23,26 +23,19 @@ class HomeDashboard extends StatefulWidget {
 
 class _HomeDashboardState extends State<HomeDashboard> {
   final _points = PointsService();
-  Uint8List? _profileBytes;
-
-  @override
-  void initState() {
-    super.initState();
-    final b64 = SessionPrefs.profileB64;
-    if (b64 != null && b64.isNotEmpty) {
-      try {
-        _profileBytes = base64Decode(b64);
-      } catch (_) {}
-    }
-  }
 
   Future<void> _pickProfile() async {
     try {
-      final f = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 400, maxHeight: 400, imageQuality: 80);
+      final f = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 400, maxHeight: 400, imageQuality: 75);
       if (f == null) return;
       final bytes = await f.readAsBytes();
-      await SessionPrefs.setProfile(base64Encode(bytes));
-      if (mounted) setState(() => _profileBytes = bytes);
+      final b64 = base64Encode(bytes);
+      await SessionPrefs.setProfile(b64); // 로컬
+      if (firebaseReady) await _points.setProfile(SessionPrefs.userId ?? '0421', b64); // 공유
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('프로필 사진을 바꿨어요 📸')));
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('사진 선택 실패: $e')));
     }
@@ -53,7 +46,16 @@ class _HomeDashboardState extends State<HomeDashboard> {
     await SessionPrefs.clear();
   }
 
-  void _go(Widget screen) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  void _go(Widget s) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => s));
+
+  static Uint8List? _decode(String? b64) {
+    if (b64 == null || b64.isEmpty) return null;
+    try {
+      return base64Decode(b64);
+    } catch (_) {
+      return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,19 +63,14 @@ class _HomeDashboardState extends State<HomeDashboard> {
       appBar: AppBar(
         title: const Text('JHS', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
-          CircleAvatar(
-            radius: 15,
-            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-            backgroundImage: _profileBytes != null ? MemoryImage(_profileBytes!) : null,
-            child: _profileBytes == null ? const Icon(Icons.person, size: 16) : null,
-          ),
           PopupMenuButton<String>(
+            icon: const Icon(Icons.menu),
             onSelected: (v) {
               if (v == 'profile') _pickProfile();
               if (v == 'logout') _logout();
             },
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'profile', child: Row(children: [Icon(Icons.image, size: 18), SizedBox(width: 8), Text('프로필 사진 변경')])),
+              PopupMenuItem(value: 'profile', child: Row(children: [Icon(Icons.image, size: 18), SizedBox(width: 8), Text('내 프로필 사진 변경')])),
               PopupMenuItem(value: 'logout', child: Row(children: [Icon(Icons.logout, size: 18), SizedBox(width: 8), Text('로그아웃')])),
             ],
           ),
@@ -105,40 +102,53 @@ class _HomeDashboardState extends State<HomeDashboard> {
   Widget _header() {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         child: firebaseReady
             ? StreamBuilder<Map<String, int>>(
                 stream: _points.watchPoints(),
-                builder: (context, snap) {
-                  final p = snap.data ?? {'0421': 0, '0118': 0};
-                  return _headerRow(p['0421'] ?? 0, p['0118'] ?? 0);
+                builder: (context, pSnap) {
+                  final pts = pSnap.data ?? {'0421': 0, '0118': 0};
+                  return StreamBuilder<Map<String, String?>>(
+                    stream: _points.watchProfiles(),
+                    builder: (context, prSnap) {
+                      final pr = prSnap.data ?? {};
+                      return _headerRow(pts['0421'] ?? 0, pts['0118'] ?? 0, _decode(pr['0421']), _decode(pr['0118']));
+                    },
+                  );
                 },
               )
-            : _headerRow(0, 0),
+            : _headerRow(0, 0, _decode(SessionPrefs.profileB64), null),
       ),
     );
   }
 
-  Widget _headerRow(int juni, int hisu) {
+  Widget _headerRow(int juni, int hisu, Uint8List? juniPic, Uint8List? hisuPic) {
     return Row(
       children: [
-        Expanded(child: _ptColumn('주니', juni)),
+        Expanded(child: _person('주니', juni, juniPic)),
         Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(dPlusLabel(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFFFF6F91))),
+            Text(dPlusLabel(), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF42A5F5))),
             const Text('우리가 만난 지', style: TextStyle(fontSize: 11, color: Colors.grey)),
           ],
         ),
-        Expanded(child: _ptColumn('히수', hisu)),
+        Expanded(child: _person('히수', hisu, hisuPic)),
       ],
     );
   }
 
-  Widget _ptColumn(String name, int pt) => Column(
+  Widget _person(String name, int pt, Uint8List? pic) => Column(
         children: [
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: const Color(0xFFFFE0EC),
+            backgroundImage: pic != null ? MemoryImage(pic) : null,
+            child: pic == null ? const Icon(Icons.person, size: 26) : null,
+          ),
+          const SizedBox(height: 6),
           Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 2),
-          Text('$pt P', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text('$pt P', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ],
       );
 

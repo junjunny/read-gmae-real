@@ -117,9 +117,15 @@ class _GameCard extends StatelessWidget {
     final uid = SessionPrefs.userId ?? '0421';
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => builder((score) async {
-        final msg = await svc.submitScoreAuto(gameKey, uid, score);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${nickOf(uid)}: $msg')));
+        try {
+          final msg = await svc.submitScoreAuto(gameKey, uid, score);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${nickOf(uid)}: $msg')));
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('점수 저장 실패: $e'), duration: const Duration(seconds: 6)));
+          }
         }
       }),
     ));
