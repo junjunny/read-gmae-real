@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'calendar_screen.dart';
-import 'today_home.dart';
+import 'home_dashboard.dart';
 
-/// 하단 2탭: 오늘 / 달력(기록)
+/// 하단 2탭: 홈 / 달력(기록)
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
   @override
@@ -18,13 +18,13 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       body: IndexedStack(
         index: _index,
-        children: const [TodayHome(), CalendarScreen()],
+        children: const [HomeDashboard(), CalendarScreen()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.wb_sunny_outlined), selectedIcon: Icon(Icons.wb_sunny), label: '오늘'),
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: '홈'),
           NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month), label: '달력'),
         ],
       ),
