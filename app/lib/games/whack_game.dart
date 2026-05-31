@@ -64,15 +64,19 @@ class _WhackGameState extends State<WhackGame> {
     _spawnTimer = Timer(Duration(milliseconds: _gap), _pop);
   }
 
+  // 칸별 피드백: '' 없음, '+10'/'-20'/'💥'
+  final Map<int, String> _fx = {};
+
   void _tap(int i) {
     if (!_running || _holes[i] == 0) return;
+    final wasBomb = _holes[i] == 2;
     setState(() {
-      if (_holes[i] == 2) {
-        _score = max(0, _score - 20); // 폭탄 패널티 ↑
-      } else {
-        _score += 10;
-      }
+      _score = wasBomb ? max(0, _score - 20) : _score + 10;
       _holes[i] = 0;
+      _fx[i] = wasBomb ? '💥 -20' : '+10';
+    });
+    Timer(const Duration(milliseconds: 350), () {
+      if (mounted) setState(() => _fx.remove(i));
     });
   }
 
@@ -110,11 +114,23 @@ class _WhackGameState extends State<WhackGame> {
                 itemCount: 9,
                 itemBuilder: (_, i) {
                   final state = _holes[i];
+                  final fx = _fx[i];
+                  final hit = fx != null;
                   return GestureDetector(
                     onTap: () => _tap(i),
-                    child: Container(
-                      decoration: BoxDecoration(color: Colors.brown.shade200, borderRadius: BorderRadius.circular(60), border: Border.all(color: Colors.brown.shade400, width: 3)),
-                      child: Center(child: Text(state == 2 ? '💣' : (state == 1 ? '🐹' : ''), style: const TextStyle(fontSize: 44))),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 120),
+                      decoration: BoxDecoration(
+                        color: hit ? (fx.contains('-') ? Colors.red.shade200 : Colors.green.shade200) : Colors.brown.shade200,
+                        borderRadius: BorderRadius.circular(60),
+                        border: Border.all(color: hit ? (fx.contains('-') ? Colors.red : Colors.green) : Colors.brown.shade400, width: 3),
+                      ),
+                      child: Center(
+                        child: Text(
+                          fx ?? (state == 2 ? '💣' : (state == 1 ? '🐹' : '')),
+                          style: TextStyle(fontSize: hit ? 22 : 44, fontWeight: FontWeight.bold, color: hit ? (fx.contains('-') ? Colors.red.shade900 : Colors.green.shade900) : null),
+                        ),
+                      ),
                     ),
                   );
                 },

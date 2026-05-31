@@ -32,16 +32,14 @@
   <title>JHS</title>
   <link rel="manifest" href="manifest.json">
 
-  <!-- 항상 최신 버전 로드: 옛 서비스워커/캐시 자동 정리 -->
+  <!-- 옛 flutter 캐싱 서비스워커만 정리(FCM 푸시 워커는 유지) -->
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function (regs) {
-        regs.forEach(function (r) { r.unregister(); });
-      }).catch(function () {});
-    }
-    if (window.caches && caches.keys) {
-      caches.keys().then(function (keys) {
-        keys.forEach(function (k) { caches.delete(k); });
+        regs.forEach(function (r) {
+          var url = (r.active && r.active.scriptURL) || '';
+          if (url.indexOf('flutter_service_worker') !== -1) r.unregister();
+        });
       }).catch(function () {});
     }
   </script>

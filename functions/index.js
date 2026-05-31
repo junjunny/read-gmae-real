@@ -1,92 +1,62 @@
-const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
 const db = admin.firestore();
-const messaging = admin.messaging();
 
-// 아기자기한 랜덤 주제 풀
-const TOPICS = [
-  "자고 있는 연인의 모습을 그려줘",
-  "지금 생각나는 동물 그리기",
-  "오늘 먹은 음식 그리기",
-  "서로의 첫인상 그리기",
-  "오늘의 기분을 색으로 표현하기",
-  "10년 뒤 우리의 모습",
-  "지금 입고 있는 옷 그리기",
-  "가장 좋아하는 우리의 추억",
-  "오늘 하늘 그리기",
-  "상대에게 주고 싶은 선물",
-];
+const ROOM = "0516";
+const SITE = "https://junjunny.github.io/read-gmae-real/";
+const nick = (uid) => (uid === "0421" ? "주니" : "히수");
 
-function todayKST() {
-  const now = new Date(Date.now() + 9 * 3600 * 1000); // UTC+9
-  return now.toISOString().slice(0, 10); // yyyy-MM-dd
-}
-
-// 날짜 문자열 → 결정적 인덱스 (커플마다 같은 날 같은 주제 동기화)
-function topicForDate(dateStr, salt) {
-  let h = 0;
-  const s = dateStr + salt;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return TOPICS[h % TOPICS.length];
-}
-
-/** 매일 오전 8시(KST) 모든 커플에게 그날의 주제 기록 + 푸시 */
-exports.dailyTopic = onSchedule(
-  { schedule: "0 8 * * *", timeZone: "Asia/Seoul" },
-  async () => {
-    const date = todayKST();
-    const couples = await db.collection("couples").get();
-    const batch = db.batch();
-
-    for (const c of couples.docs) {
-      const topic = topicForDate(date, c.id);
-      batch.set(c.ref.collection("dailyTopics").doc(date), {
-        topic,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+/** 콕 찌르기: rooms/{room}/pokes 문서가 생기면 상대에게 즉시 푸시(커스텀 멘트) */
+exports.onPoke = onDocumentCreated("rooms/{room}/pokes/{id}", async (event) => {
+  const d = event.data && event.data.data();
+  if (!d) return;
+  const to = d.to;
+  const msg = (d.message && String(d.message).trim()) || "콕! 👈";
+  const tdoc = await db.doc(`rooms/${event.params.room}/meta/tokens`).get();
+  const token = (tdoc.data() || {})[to];
+  if (token) {
+    try {
+      await admin.messaging().send({
+        token,
+        notification: { title: `${nick(d.from)}님의 콕! 💗`, body: msg },
+        webpush: { fcmOptions: { link: SITE } },
       });
+    } catch (e) {
+      console.error("poke send fail", e);
     }
-    await batch.commit();
-
-    // FCM 푸시 (topic 구독 기반)
-    await messaging.send({
-      topic: "daily",
-      notification: {
-        title: "🎨 오늘의 그림 주제 도착!",
-        body: "지금 열어서 오늘의 미션을 확인해보세요.",
-      },
-    });
   }
-);
+  // 처리된 poke 정리
+  try { await event.data.ref.delete(); } catch (_) {}
+});
 
-/** 상대가 그림을 보내면 푸시 알림 (위젯은 클라이언트 리스너가 갱신) */
-exports.onNewDrawing = onDocumentCreated(
-  "couples/{coupleId}/drawings/{drawingId}",
-  async (event) => {
-    const data = event.data?.data();
-    if (!data) return;
-    // 보낸 사람 제외 상대에게 알림: 멤버 토큰 조회 후 전송
-    const coupleId = event.params.coupleId;
-    const couple = await db.collection("couples").doc(coupleId).get();
-    const members = (couple.data()?.members || []).filter((u) => u !== data.authorUid);
+/** 매일 19시(KST) 기본 알림 — 각자 다른 멘트 랜덤 */
+const NUDGE = {
+  "0421": ["주니 얼른 그림 그려! 🎨", "주니야 오늘 그림 그렸어? ✏️", "주니 미니게임 한 판 ㄱㄱ 🎮", "주니 오늘 주제 확인했어? 👀"],
+  "0118": ["히수 얼른 그림 그려! 🎨", "히수야 오늘 그림 그렸어? ✏️", "히수 미니게임 도전! 🎮", "히수 오늘 주제 확인했어? 👀"],
+};
 
-    const tokens = [];
-    for (const uid of members) {
-      const u = await db.collection("users").doc(uid).get();
-      const t = u.data()?.fcmToken;
-      if (t) tokens.push(t);
+exports.dailyNudge = onSchedule(
+  { schedule: "0 19 * * *", timeZone: "Asia/Seoul" },
+  async () => {
+    const tdoc = await db.doc(`rooms/${ROOM}/meta/tokens`).get();
+    const tokens = tdoc.data() || {};
+    for (const uid of ["0421", "0118"]) {
+      const tk = tokens[uid];
+      if (!tk) continue;
+      const pool = NUDGE[uid];
+      const body = pool[Math.floor(Math.random() * pool.length)];
+      try {
+        await admin.messaging().send({
+          token: tk,
+          notification: { title: "JHS", body },
+          webpush: { fcmOptions: { link: SITE } },
+        });
+      } catch (e) {
+        console.error("nudge send fail", uid, e);
+      }
     }
-    if (tokens.length === 0) return;
-
-    await messaging.sendEachForMulticast({
-      tokens,
-      notification: {
-        title: `💌 ${data.authorName}님이 그림을 보냈어요`,
-        body: data.topic,
-      },
-      data: { type: "new_drawing", drawingId: event.params.drawingId },
-    });
   }
 );

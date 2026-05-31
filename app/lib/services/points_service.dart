@@ -87,6 +87,31 @@ class PointsService {
   Future<void> setGeminiKey(String key) =>
       _configRef.set({'geminiKey': key}, SetOptions(merge: true));
 
+  Future<String?> getVapidKey() async {
+    final s = await _configRef.get();
+    return s.data()?['vapidKey'] as String?;
+  }
+
+  /// FCM 토큰 저장 (rooms/{room}/meta/tokens).
+  Future<void> saveToken(String userId, String token) => _db
+      .collection('rooms')
+      .doc(_room)
+      .collection('meta')
+      .doc('tokens')
+      .set({userId: token}, SetOptions(merge: true));
+
+  /// 콕 찌르기: 큐에 넣으면 무료 크론이 ~10분 내 상대에게 푸시.
+  Future<void> sendPoke(String fromUid, String toUid, String message) => _db
+      .collection('rooms')
+      .doc(_room)
+      .collection('pokes')
+      .add({
+        'from': fromUid,
+        'to': toUid,
+        'message': message,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
   DocumentReference<Map<String, dynamic>> get _recordsRef =>
       _db.collection('rooms').doc(_room).collection('meta').doc('records');
 

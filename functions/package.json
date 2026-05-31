@@ -1,6 +1,6 @@
 {
-  "name": "grimpingpong-functions",
-  "description": "그림핑퐁 Cloud Functions (매일 주제 배포 + 그림 알림)",
+  "name": "jhs-functions",
+  "description": "JHS Cloud Functions — 콕 찌르기 + 매일 19시 알림",
   "engines": { "node": "20" },
   "main": "index.js",
   "dependencies": {
