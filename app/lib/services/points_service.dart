@@ -1,6 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'gemini_service.dart';
 import 'session_prefs.dart';
+
+/// 명언 필사 채점 결과.
+enum QuoteResult { ok, already, mismatch, noQuote }
 
 /// 포인트 + 프로필 + 미니게임(일일 베스트, 자정 정산).
 /// - 포인트: rooms/{room}/meta/points  { '0421': n, '0118': n }
@@ -121,16 +125,21 @@ class PointsService {
         return m.map((k, v) => MapEntry(k, Map<String, dynamic>.from(v as Map)));
       });
 
-  /// 역대 기록 갱신(더 높으면).
-  Future<void> updateRecord(String key, String userId, int score) async {
-    await _db.runTransaction((tx) async {
+  /// 역대 기록 갱신(더 높으면). 월드레코드 갱신 시 즉시 +100P.
+  /// 반환: 신기록이면 true.
+  Future<bool> updateRecord(String key, String userId, int score) async {
+    return _db.runTransaction((tx) async {
       final s = await tx.get(_recordsRef);
       final cur = (s.data()?[key]?['score'] ?? -1) as int;
-      if (score > cur) {
-        tx.set(_recordsRef, {
-          key: {'score': score, 'holder': userId}
-        }, SetOptions(merge: true));
-      }
+      if (score <= cur) return false;
+      // 즉시 +100P
+      final p = await tx.get(_pointsRef);
+      final curPt = (p.data()?[userId] ?? 0) as int;
+      tx.set(_pointsRef, {userId: curPt + 100}, SetOptions(merge: true));
+      tx.set(_recordsRef, {
+        key: {'score': score, 'holder': userId}
+      }, SetOptions(merge: true));
+      return true;
     });
   }
 
@@ -148,6 +157,67 @@ class PointsService {
   /// 최근 정산 요약(어제 결과 등) 스트림.
   Stream<String?> watchLastSummary() =>
       _stateRef.snapshots().map((d) => d.data()?['lastSummary'] as String?);
+
+  // ---- 오늘의 명언 (필사 +50P) ----
+  /// rooms/{room}/quotes/{date}  { text, claimed: {'0421':bool,'0118':bool} }
+  DocumentReference<Map<String, dynamic>> _quoteRef(String date) =>
+      _db.collection('rooms').doc(_room).collection('quotes').doc(date);
+
+  /// 오늘의 명언 스트림.
+  Stream<Map<String, dynamic>?> watchTodayQuote() =>
+      _quoteRef(kstToday()).snapshots().map((d) => d.data());
+
+  /// 오늘의 명언이 없으면 Gemini로 1개 생성해 저장(앱 실행 시 자정 경과분 체크).
+  /// 키가 없거나 실패하면 조용히 넘어감(메뉴 추천에서 키를 등록하면 다음날부터 동작).
+  Future<void> ensureTodayQuote() async {
+    final date = kstToday();
+    final ref = _quoteRef(date);
+    final snap = await ref.get();
+    if (snap.exists && (snap.data()?['text'] as String?)?.isNotEmpty == true) return;
+
+    if (!GeminiService.hasKey) {
+      GeminiService.apiKey = await getGeminiKey();
+      if (!GeminiService.hasKey) return;
+    }
+    String text;
+    try {
+      text = await GeminiService.generate(
+          '오늘의 명언(좋은 글귀)을 딱 1개만 한국어로 알려줘. '
+          '형식은 "명언 - 저자" 한 줄. 40자 이내로 짧고 필사하기 좋게. '
+          '따옴표나 설명, 다른 말은 절대 붙이지 마.');
+    } catch (_) {
+      return;
+    }
+    text = text.replaceAll('\n', ' ').replaceAll('"', '').replaceAll('“', '').replaceAll('”', '').trim();
+    if (text.isEmpty) return;
+    // 그 사이 상대가 먼저 생성했을 수 있으니 없을 때만 기록.
+    await _db.runTransaction((tx) async {
+      final s = await tx.get(ref);
+      if (s.exists && (s.data()?['text'] as String?)?.isNotEmpty == true) return;
+      tx.set(ref, {'text': text, 'claimed': <String, dynamic>{}, 'createdAt': FieldValue.serverTimestamp()});
+    });
+  }
+
+  /// 필사 채점: 띄어쓰기 포함 정확히 일치하면 +50P(하루 1회). 양끝 공백만 무시.
+  Future<QuoteResult> claimQuote(String userId, String typed) async {
+    final date = kstToday();
+    final ref = _quoteRef(date);
+    return _db.runTransaction((tx) async {
+      final qs = await tx.get(ref);
+      final text = (qs.data()?['text'] as String?)?.trim();
+      if (text == null || text.isEmpty) return QuoteResult.noQuote;
+      final claimed = Map<String, dynamic>.from(qs.data()?['claimed'] ?? {});
+      if (claimed[userId] == true) return QuoteResult.already;
+      if (typed.trim() != text) return QuoteResult.mismatch;
+
+      final ps = await tx.get(_pointsRef);
+      final cur = (ps.data()?[userId] ?? 0) as int;
+      tx.set(_pointsRef, {userId: cur + 50}, SetOptions(merge: true));
+      claimed[userId] = true;
+      tx.set(ref, {'claimed': claimed}, SetOptions(merge: true));
+      return QuoteResult.ok;
+    });
+  }
 
   // ---- 자정 정산 (지난 날짜 처리) ----
   /// 앱이 열릴 때 호출. 어제까지의 미정산 날짜를 정산한다.
@@ -222,10 +292,10 @@ class PointsService {
     });
     for (final u in ['0421', '0118']) {
       if (drew.contains(u)) {
-        delta[u] = delta[u]! + 5;
+        delta[u] = delta[u]! + 50;
       }
     }
-    if (drew.isNotEmpty) parts.add('그림 ${drew.map(_nick).join('·')} +5');
+    if (drew.isNotEmpty) parts.add('그림 ${drew.map(_nick).join('·')} +50');
 
     // 역대 월드레코드 갱신(그날 베스트와 비교)
     if (games.isNotEmpty) {

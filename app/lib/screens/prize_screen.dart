@@ -14,18 +14,29 @@ class PrizeScreen extends StatefulWidget {
 
 class _Prize {
   final String name;
-  final int price;
   final double pct; // 확률(%)
-  const _Prize(this.name, this.price, this.pct);
+  final String emoji; // 타입
+  const _Prize(this.name, this.pct, this.emoji);
 }
 
 const int kBoxCost = 1000;
+// 확률 합 = 100.0% (내림차순). 비싼 상품은 희귀하게 유지.
 const List<_Prize> _kPrizes = [
-  _Prize('뮤지컬/콘서트 티켓', 200000, 0.5),
-  _Prize('기프티콘', 20000, 5.0),
-  _Prize('기프티콘', 5000, 14.5),
-  _Prize('아아 1잔', 2000, 35.0),
-  _Prize('편의점 상품', 1000, 45.0),
+  _Prize('꼭 안아주기 쿠폰 (5분)', 11, '💆'),
+  _Prize('편의점 1,000원', 11, '💸'),
+  _Prize('칭찬 문자 5개 보내주기', 9.8, '💌'),
+  _Prize('아아 1잔 (2,000원)', 9, '💸'),
+  _Prize('마사지 10분권', 9, '💆'),
+  _Prize('같이 산책 30분 (코스 상대방이 고름)', 9, '🎬'),
+  _Prize('같이 영화 1편 (상대방이 고름)', 9, '🎬'),
+  _Prize('추억사진 골라 그때 경험 손편지 쓰기', 8, '💌'),
+  _Prize('스킨케어 해주기 (팩+마사지)', 6, '💆'),
+  _Prize('쿠키/바스크 치즈케이크 만들어주기', 5, '🍳'),
+  _Prize('기프티콘 5,000원', 5, '💸'),
+  _Prize('데이트 코스 풀기획', 4, '🎬'),
+  _Prize('마사지 20분권', 2, '💆'),
+  _Prize('기프티콘 10,000원', 2, '💸'),
+  _Prize('뮤지컬/콘서트 티켓 (200,000원)', 0.2, '💸'),
 ];
 
 class _PrizeScreenState extends State<PrizeScreen> {
@@ -33,8 +44,14 @@ class _PrizeScreenState extends State<PrizeScreen> {
   final _rng = Random();
   bool _opening = false;
 
+  // 11.0 → '11', 9.8 → '9.8' 처럼 깔끔하게 표시.
+  static String _pctText(double v) =>
+      v == v.truncateToDouble() ? v.toStringAsFixed(0) : v.toString();
+
+  // 확률 합(=100%) 기준으로 비율대로 추첨.
   _Prize _draw() {
-    final r = _rng.nextDouble() * 100;
+    final total = _kPrizes.fold<double>(0, (a, p) => a + p.pct);
+    final r = _rng.nextDouble() * total;
     var acc = 0.0;
     for (final p in _kPrizes) {
       acc += p.pct;
@@ -61,9 +78,9 @@ class _PrizeScreenState extends State<PrizeScreen> {
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('🎉 ${prize.name}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                Text('${prize.emoji} 당첨!', style: const TextStyle(color: Colors.grey)),
                 const SizedBox(height: 6),
-                Text('(${_won(prize.price)})', style: const TextStyle(color: Colors.grey)),
+                Text('🎉 ${prize.name}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
               ],
             ),
             actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('확인'))],
@@ -74,8 +91,6 @@ class _PrizeScreenState extends State<PrizeScreen> {
       if (mounted) setState(() => _opening = false);
     }
   }
-
-  static String _won(int v) => '${v.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}원';
 
   @override
   Widget build(BuildContext context) {
@@ -138,8 +153,9 @@ class _PrizeScreenState extends State<PrizeScreen> {
                           child: Row(
                             children: [
                               SizedBox(width: 22, child: Text('${i + 1}', style: const TextStyle(fontWeight: FontWeight.bold))),
-                              Expanded(child: Text('${p.name}  (${_won(p.price)})')),
-                              Text('${p.pct}%', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFF6F91))),
+                              Text('${p.emoji} '),
+                              Expanded(child: Text(p.name)),
+                              Text('${_pctText(p.pct)}%', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFF6F91))),
                             ],
                           ),
                         );

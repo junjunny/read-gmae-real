@@ -6,7 +6,9 @@ import 'package:intl/intl.dart';
 import '../app_state.dart';
 import '../models/entry.dart';
 import '../services/room_service.dart';
+import '../services/session_prefs.dart';
 import '../util/daily_topic.dart';
+import '../util/users.dart';
 import '../widgets/entry_image.dart';
 import 'canvas_screen.dart';
 
@@ -82,9 +84,37 @@ class _TodayEntries extends StatelessWidget {
         if (items.isEmpty) {
           return const Card(child: Padding(padding: EdgeInsets.all(24), child: Center(child: Text('아직 오늘 제출된 그림이 없어요.\n먼저 그려서 제출해보세요! ✏️', textAlign: TextAlign.center))));
         }
+        // 둘 다 제출하기 전까지 상대 그림은 비공개(내 그림은 항상 보임).
+        final myId = SessionPrefs.userId ?? '0421';
+        final ids = items.map((e) => e.authorId).toSet();
+        final bothDrew = ids.contains('0421') && ids.contains('0118');
+        final visible = bothDrew ? items : items.where((e) => e.authorId == myId).toList();
+        final partnerId = myId == '0421' ? '0118' : '0421';
+        final partnerDrew = ids.contains(partnerId);
         return Column(
-          children: items
-              .map((e) => Card(
+          children: [
+            if (!bothDrew)
+              Card(
+                color: Colors.amber.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      const Text('🔒', style: TextStyle(fontSize: 22)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          partnerDrew
+                              ? '${nickOf(partnerId)}님은 그렸어요! 나도 그려야 서로의 그림이 공개돼요 🎨'
+                              : '둘 다 그려야 서로의 그림이 공개돼요. 먼저 그려보세요! ✏️',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ...visible.map((e) => Card(
                     clipBehavior: Clip.antiAlias,
                     child: Column(
                       children: [
@@ -92,8 +122,8 @@ class _TodayEntries extends StatelessWidget {
                         ListTile(leading: const Icon(Icons.brush), title: Text(e.author), subtitle: Text(DateFormat('HH:mm').format(e.createdAt))),
                       ],
                     ),
-                  ))
-              .toList(),
+                  )),
+          ],
         );
       },
     );

@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../games/color_game.dart';
 import '../games/game_2048.dart';
 import '../games/memory_game.dart';
-import '../games/piano_tiles_game.dart';
 import '../games/reaction_game.dart';
 import '../games/schulte_game.dart';
+import '../games/sniper_game.dart';
+import '../games/snake_game.dart';
 import '../games/stack_game.dart';
 import '../games/tap_game.dart';
 import '../games/tetris_game.dart';
@@ -31,7 +32,8 @@ final List<_GameDef> _kGames = [
   _GameDef('g2048', '2048 🔢', '밀어서 숫자 합치기', (f) => Game2048(onFinish: f)),
   _GameDef('memory', '카드 짝맞추기 🃏', '8쌍 빨리 맞추기', (f) => MemoryGame(onFinish: f)),
   _GameDef('whack', '두더지 잡기 🔨', '빠르게! 폭탄 피하기', (f) => WhackGame(onFinish: f)),
-  _GameDef('piano', '피아노 타일 🎹', '검은 타일 놓치지 말기', (f) => PianoTilesGame(onFinish: f)),
+  _GameDef('snake', '스네이크 🐍', '먹이 먹고 길어지기(점점 빨라짐)', (f) => SnakeGame(onFinish: f)),
+  _GameDef('sniper', '저격수 🎯', '움직이는 타겟을 빠르게 탭', (f) => SniperGame(onFinish: f)),
   _GameDef('stack', '블록 쌓기 🏗️', '정확히 탭해서 쌓기', (f) => StackGame(onFinish: f)),
 ];
 
@@ -148,9 +150,12 @@ class _GameCard extends StatelessWidget {
       builder: (_) => def.builder((score) async {
         try {
           await svc.submitBest(def.key, uid, score);
-          await svc.updateRecord(def.key, uid, score);
+          final newRecord = await svc.updateRecord(def.key, uid, score);
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${nickOf(uid)} 점수 $score — 오늘 베스트 반영!')));
+            final msg = newRecord
+                ? '🏆 월드레코드 갱신! ${nickOf(uid)} $score점 — 즉시 +100P!'
+                : '${nickOf(uid)} 점수 $score — 오늘 베스트 반영!';
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
           }
         } catch (e) {
           if (context.mounted) {

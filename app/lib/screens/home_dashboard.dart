@@ -32,6 +32,8 @@ class _HomeDashboardState extends State<HomeDashboard> {
     // 앱 열릴 때 지난 날짜(자정 경과분) 자동 정산
     if (firebaseReady) {
       _points.settlePending().catchError((_) {});
+      // 오늘의 명언이 없으면 생성(자정 트리거 대용: 앱 실행 시 체크)
+      _points.ensureTodayQuote().catchError((_) {});
     }
   }
 
@@ -131,7 +133,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
         padding: const EdgeInsets.all(16),
         children: [
           _header(),
-          if (firebaseReady) _settleBanner(),
+          if (firebaseReady) ...[const SizedBox(height: 12), _quoteCard()],
           const SizedBox(height: 12),
           if (firebaseReady)
             Row(
@@ -225,30 +227,101 @@ class _HomeDashboardState extends State<HomeDashboard> {
         ],
       );
 
-  Widget _settleBanner() {
-    return StreamBuilder<String?>(
-      stream: _points.watchLastSummary(),
+  Widget _quoteCard() {
+    final myId = SessionPrefs.userId ?? '0421';
+    return StreamBuilder<Map<String, dynamic>?>(
+      stream: _points.watchTodayQuote(),
       builder: (context, snap) {
-        final s = snap.data;
-        if (s == null || s.isEmpty) return const SizedBox.shrink();
-        return Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: Card(
-            color: Colors.amber.shade50,
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  const Text('🌙', style: TextStyle(fontSize: 20)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text('지난 정산 결과\n$s', style: const TextStyle(fontSize: 12))),
+        final data = snap.data;
+        final text = (data?['text'] as String?)?.trim();
+        final claimed = Map<String, dynamic>.from(data?['claimed'] ?? {});
+        final mineDone = claimed[myId] == true;
+        return Card(
+          color: const Color(0xFFF3EFFF),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('✍️ 오늘의 명언', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                if (text == null || text.isEmpty)
+                  const Text('오늘의 명언을 준비 중이에요... 🌙\n(메뉴 추천에서 Gemini 키를 등록하면 매일 떠요)',
+                      style: TextStyle(fontSize: 13, color: Colors.grey))
+                else ...[
+                  Text('“$text”', style: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic, height: 1.4)),
+                  const SizedBox(height: 12),
+                  if (mineDone)
+                    const Row(children: [
+                      Icon(Icons.check_circle, color: Colors.green, size: 20),
+                      SizedBox(width: 6),
+                      Text('오늘 필사 완료! (+50P)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                    ])
+                  else
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => _writeQuote(text),
+                        icon: const Icon(Icons.edit, size: 18),
+                        label: const Text('필사하고 +50P (띄어쓰기까지 정확히!)'),
+                      ),
+                    ),
                 ],
-              ),
+              ],
             ),
           ),
         );
       },
     );
+  }
+
+  Future<void> _writeQuote(String target) async {
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('✍️ 명언 필사'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: const Color(0xFFF3EFFF), borderRadius: BorderRadius.circular(8)),
+              child: Text(target, style: const TextStyle(fontSize: 15, fontStyle: FontStyle.italic)),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              maxLines: 3,
+              decoration: const InputDecoration(hintText: '위 문장을 똑같이 입력하세요', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 4),
+            const Text('띄어쓰기·맞춤법까지 정확해야 +50P 인정돼요.', style: TextStyle(fontSize: 11, color: Colors.grey)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('제출')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final myId = SessionPrefs.userId ?? '0421';
+    try {
+      final res = await _points.claimQuote(myId, ctrl.text);
+      if (!mounted) return;
+      final msg = switch (res) {
+        QuoteResult.ok => '정확해요! +50P 🎉',
+        QuoteResult.already => '오늘은 이미 필사했어요 ✅',
+        QuoteResult.mismatch => '아쉬워요! 띄어쓰기·맞춤법까지 정확히 다시 써봐요 ✍️',
+        QuoteResult.noQuote => '아직 오늘의 명언이 없어요',
+      };
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('채점 실패: $e')));
+    }
   }
 
   Widget _cat(String title, String emoji, Color bg, VoidCallback onTap) {

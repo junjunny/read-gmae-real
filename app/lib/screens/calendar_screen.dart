@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../app_state.dart';
 import '../models/entry.dart';
 import '../services/room_service.dart';
+import '../services/session_prefs.dart';
+import '../util/users.dart';
 import '../widgets/entry_image.dart';
 
 /// 달력 탭: 월별 달력에서 그림이 있는 날짜에 점 표시, 날짜를 누르면 그 날의 그림들.
@@ -37,6 +39,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 final dates = all.map((e) => e.date).toSet(); // 그림 있는 날짜
                 final selectedKey = _fmt(_selected);
                 final dayEntries = all.where((e) => e.date == selectedKey).toList();
+                // 둘 다 제출하기 전까지 상대 그림은 비공개(내 그림은 항상 보임).
+                final myId = SessionPrefs.userId ?? '0421';
+                final dayIds = dayEntries.map((e) => e.authorId).toSet();
+                final bothDrew = dayIds.contains('0421') && dayIds.contains('0118');
+                final visibleEntries = bothDrew ? dayEntries : dayEntries.where((e) => e.authorId == myId).toList();
+                final partnerId = myId == '0421' ? '0118' : '0421';
                 return ListView(
                   children: [
                     _MonthHeader(
@@ -58,8 +66,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     const SizedBox(height: 8),
                     if (dayEntries.isEmpty)
                       const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('이 날은 그림이 없어요.')))
-                    else
-                      ...dayEntries.map((e) => _EntryCard(entry: e)),
+                    else ...[
+                      if (!bothDrew)
+                        Card(
+                          color: Colors.amber.shade50,
+                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Text(
+                              dayIds.contains(partnerId) && !dayIds.contains(myId)
+                                  ? '🔒 ${nickOf(partnerId)}님 그림은 나도 그려야 공개돼요.'
+                                  : '🔒 둘 다 그려야 서로의 그림이 공개돼요.',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        ),
+                      ...visibleEntries.map((e) => _EntryCard(entry: e)),
+                    ],
                     const SizedBox(height: 24),
                   ],
                 );
