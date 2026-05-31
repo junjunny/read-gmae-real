@@ -1,9 +1,11 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../services/points_service.dart';
 import '../services/session_prefs.dart';
+import '../util/users.dart';
 
 /// 상품 현황 + 랜덤박스(1,000포인트로 1개, 확률 추첨).
 class PrizeScreen extends StatefulWidget {
@@ -70,6 +72,10 @@ class _PrizeScreenState extends State<PrizeScreen> {
         return;
       }
       final prize = _draw();
+      // 보관함에 추가(소유자 = 뽑은 사람) → 서로 보유 상품 확인 가능
+      try {
+        await _svc.addPrize(uid, prize.name, prize.emoji);
+      } catch (_) {}
       if (mounted) {
         showDialog(
           context: context,
@@ -138,6 +144,8 @@ class _PrizeScreenState extends State<PrizeScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+              _inventoryCard(uid),
+              const SizedBox(height: 16),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -169,6 +177,113 @@ class _PrizeScreenState extends State<PrizeScreen> {
         },
       ),
     );
+  }
+
+  // 보유 상품: 두 사람 각각의 당첨 상품 목록. 본인 것만 '사용 완료' 가능.
+  Widget _inventoryCard(String myId) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: StreamBuilder<List<Map<String, dynamic>>>(
+          stream: _svc.watchInventory(),
+          builder: (context, snap) {
+            final items = snap.data ?? [];
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('🎒 보유 상품', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                const Text('당첨된 상품이 여기 쌓여요. 본인 상품은 직접 "사용 완료"를 눌러요.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey)),
+                const SizedBox(height: 10),
+                if (items.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Text('아직 당첨된 상품이 없어요. 랜덤박스를 열어보세요! 🎁',
+                        style: TextStyle(color: Colors.grey)),
+                  )
+                else
+                  for (final owner in const ['0421', '0118']) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6, bottom: 2),
+                      child: Text('${nickOf(owner)}의 상품', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    ),
+                    ...() {
+                      final mine = items.where((e) => e['ownerId'] == owner).toList();
+                      if (mine.isEmpty) {
+                        return [const Padding(padding: EdgeInsets.only(left: 4, bottom: 4), child: Text('— 없음', style: TextStyle(color: Colors.grey, fontSize: 12)))];
+                      }
+                      return mine.map(_prizeRow).toList();
+                    }(),
+                  ],
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _prizeRow(Map<String, dynamic> item) {
+    final myId = SessionPrefs.userId ?? '0421';
+    final isMine = item['ownerId'] == myId;
+    final used = item['used'] == true;
+    final usedDate = item['usedDate'] as String?;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Text('${item['emoji'] ?? '🎁'} ', style: const TextStyle(fontSize: 16)),
+          Expanded(
+            child: Text(
+              (item['name'] ?? '상품').toString(),
+              style: TextStyle(
+                decoration: used ? TextDecoration.lineThrough : null,
+                color: used ? Colors.grey : null,
+              ),
+            ),
+          ),
+          if (used)
+            Text('✅ ${usedDate != null ? _mdLabel(usedDate) : ''} 사용', style: const TextStyle(fontSize: 12, color: Colors.grey))
+          else if (isMine)
+            OutlinedButton(
+              onPressed: () => _useprize(item['id'] as String, (item['name'] ?? '상품').toString()),
+              style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 10)),
+              child: const Text('사용 완료'),
+            )
+          else
+            const Text('보유 중', style: TextStyle(fontSize: 12, color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+
+  static String _mdLabel(String yyyymmdd) {
+    final p = yyyymmdd.split('-');
+    return p.length == 3 ? '${int.parse(p[1])}/${int.parse(p[2])}' : yyyymmdd;
+  }
+
+  Future<void> _useprize(String id, String name) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('사용 완료 처리'),
+        content: Text('"$name"을(를) 사용 완료로 표시할까요?\n오늘 날짜로 달력에 상품 아이콘이 남아요.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('사용 완료')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _svc.markPrizeUsed(id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('"$name" 사용 완료! 달력 ${DateFormat('M/d').format(DateTime.now())}에 남았어요 📅')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('처리 실패: $e')));
+    }
   }
 
   Widget _ptCard(String name, int pt) => Expanded(

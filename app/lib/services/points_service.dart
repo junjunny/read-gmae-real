@@ -219,6 +219,40 @@ class PointsService {
     });
   }
 
+  // ---- 보유 상품(보관함) ----
+  /// rooms/{room}/inventory/{id}  { ownerId, name, emoji, used, usedDate, wonAt }
+  CollectionReference<Map<String, dynamic>> get _inventoryRef =>
+      _db.collection('rooms').doc(_room).collection('inventory');
+
+  /// 랜덤박스 당첨 상품을 보관함에 추가(소유자 = 뽑은 사람).
+  Future<void> addPrize(String ownerId, String name, String emoji) =>
+      _inventoryRef.add({
+        'ownerId': ownerId,
+        'name': name,
+        'emoji': emoji,
+        'used': false,
+        'wonAt': FieldValue.serverTimestamp(),
+      });
+
+  /// 두 사람의 보유 상품 전체(최신순). 각 항목에 문서 id 포함.
+  Stream<List<Map<String, dynamic>>> watchInventory() =>
+      _inventoryRef.snapshots().map((s) {
+        final list = s.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+        list.sort((a, b) {
+          final ta = (a['wonAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+          final tb = (b['wonAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+          return tb.compareTo(ta);
+        });
+        return list;
+      });
+
+  /// 상품 사용 완료 표시 → 오늘(KST) 날짜로 달력에 남음.
+  Future<void> markPrizeUsed(String id) => _inventoryRef.doc(id).set({
+        'used': true,
+        'usedDate': kstToday(),
+        'usedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
   // ---- 자정 정산 (지난 날짜 처리) ----
   /// 앱이 열릴 때 호출. 어제까지의 미정산 날짜를 정산한다.
   Future<void> settlePending() async {

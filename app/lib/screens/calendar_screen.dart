@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../app_state.dart';
 import '../models/entry.dart';
+import '../services/points_service.dart';
 import '../services/room_service.dart';
 import '../services/session_prefs.dart';
 import '../util/users.dart';
@@ -18,6 +19,7 @@ class CalendarScreen extends StatefulWidget {
 class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime _selected = DateTime.now();
+  final _points = PointsService();
 
   String _fmt(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
 
@@ -45,7 +47,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 final bothDrew = dayIds.contains('0421') && dayIds.contains('0118');
                 final visibleEntries = bothDrew ? dayEntries : dayEntries.where((e) => e.authorId == myId).toList();
                 final partnerId = myId == '0421' ? '0118' : '0421';
-                return ListView(
+                return StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _points.watchInventory(),
+                  builder: (context, invSnap) {
+                    // 사용 완료한 상품 → 사용한 날짜별로 묶어 달력에 아이콘 표시.
+                    final usedByDate = <String, List<Map<String, dynamic>>>{};
+                    for (final u in invSnap.data ?? <Map<String, dynamic>>[]) {
+                      if (u['used'] == true && u['usedDate'] != null) {
+                        (usedByDate[u['usedDate'] as String] ??= []).add(u);
+                      }
+                    }
+                    final prizeEmojis = usedByDate.map((k, v) =>
+                        MapEntry(k, v.map((e) => (e['emoji'] ?? '🎁').toString()).toList()));
+                    final dayPrizes = usedByDate[selectedKey] ?? const <Map<String, dynamic>>[];
+                    return ListView(
                   children: [
                     _MonthHeader(
                       month: _month,
@@ -56,6 +71,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       month: _month,
                       selected: _selected,
                       markedDates: dates,
+                      prizeEmojis: prizeEmojis,
                       onTap: (d) => setState(() => _selected = d),
                     ),
                     const Divider(height: 24),
@@ -64,9 +80,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       child: Text(DateFormat('M월 d일 (E)', 'ko').format(_selected), style: const TextStyle(fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(height: 8),
-                    if (dayEntries.isEmpty)
-                      const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('이 날은 그림이 없어요.')))
-                    else ...[
+                    // 이 날 사용 완료한 상품(아이콘 + 이름 + 사용자)
+                    for (final p in dayPrizes)
+                      Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        color: const Color(0xFFF1F8E9),
+                        child: ListTile(
+                          leading: Text((p['emoji'] ?? '🎁').toString(), style: const TextStyle(fontSize: 26)),
+                          title: Text((p['name'] ?? '상품').toString()),
+                          subtitle: Text('${nickOf(p['ownerId'] as String?)} 사용 완료 🎁'),
+                        ),
+                      ),
+                    if (dayEntries.isEmpty && dayPrizes.isEmpty)
+                      const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('이 날은 기록이 없어요.')))
+                    else if (dayEntries.isNotEmpty) ...[
                       if (!bothDrew)
                         Card(
                           color: Colors.amber.shade50,
@@ -85,6 +112,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     ],
                     const SizedBox(height: 24),
                   ],
+                );
+                  },
                 );
               },
             ),
@@ -116,8 +145,9 @@ class _MonthGrid extends StatelessWidget {
   final DateTime month;
   final DateTime selected;
   final Set<String> markedDates;
+  final Map<String, List<String>> prizeEmojis; // 날짜 → 사용한 상품 아이콘들
   final ValueChanged<DateTime> onTap;
-  const _MonthGrid({required this.month, required this.selected, required this.markedDates, required this.onTap});
+  const _MonthGrid({required this.month, required this.selected, required this.markedDates, required this.prizeEmojis, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -138,6 +168,7 @@ class _MonthGrid extends StatelessWidget {
       final key = DateFormat('yyyy-MM-dd').format(d);
       final isSel = selected.year == d.year && selected.month == d.month && selected.day == d.day;
       final marked = markedDates.contains(key);
+      final prizes = prizeEmojis[key] ?? const <String>[];
       cells.add(GestureDetector(
         onTap: () => onTap(d),
         child: Container(
@@ -150,7 +181,14 @@ class _MonthGrid extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text('$day', style: TextStyle(color: isSel ? Colors.white : null, fontSize: 13)),
-              if (marked)
+              if (prizes.isNotEmpty)
+                Text(
+                  prizes.length > 2 ? '${prizes.take(2).join()}…' : prizes.join(),
+                  style: const TextStyle(fontSize: 9),
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                )
+              else if (marked)
                 Container(width: 5, height: 5, decoration: BoxDecoration(color: isSel ? Colors.white : Colors.pink, shape: BoxShape.circle)),
             ],
           ),
