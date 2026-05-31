@@ -10,10 +10,12 @@ class GeminiService {
 
   static bool get hasKey => apiKey != null && apiKey!.isNotEmpty;
 
-  static Future<String> generate(String prompt) async {
+  /// [model] 미지정 시 가장 빠른 경량 모델. 더 정교한 답이 필요하면
+  /// 'gemini-flash-latest' 등을 넘겨 품질을 높일 수 있다.
+  static Future<String> generate(String prompt, {String? model}) async {
     if (!hasKey) throw Exception('API 키가 설정되지 않았어요.');
     final uri = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent?key=$apiKey');
+        'https://generativelanguage.googleapis.com/v1beta/models/${model ?? _model}:generateContent?key=$apiKey');
     final res = await http.post(
       uri,
       headers: {'Content-Type': 'application/json'},
