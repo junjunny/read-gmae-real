@@ -237,8 +237,10 @@ class _TetrisGameState extends State<TetrisGame> {
       itemBuilder: (_, i) {
         final v = view[i ~/ _cols][i % _cols];
         return Container(
-          margin: const EdgeInsets.all(0.5),
-          color: v == -1 ? const Color(0xFF222222) : _colors[v],
+          decoration: BoxDecoration(
+            color: v == -1 ? const Color(0xFF1A1A1A) : _colors[v],
+            border: Border.all(color: const Color(0xFF3A3A3A), width: 0.7), // 격자 실선
+          ),
         );
       },
     );

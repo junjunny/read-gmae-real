@@ -1,12 +1,13 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 오직 우리 두 계정만 접근 허용. (이메일은 ID로부터 생성됨)
+    // 오직 우리 두 계정만 접근 (이메일은 ID로부터 생성: 0421@jhs.app / 0118@jhs.app)
     function isUs() {
       return request.auth != null
         && request.auth.token.email in ['0421@jhs.app', '0118@jhs.app'];
     }
-    match /rooms/{room}/entries/{doc} {
+    // 방 안의 모든 데이터(entries, meta/points, meta/profiles, games)
+    match /rooms/{room}/{document=**} {
       allow read, write: if isUs();
     }
   }

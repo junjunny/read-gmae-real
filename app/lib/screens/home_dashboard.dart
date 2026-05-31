@@ -24,6 +24,15 @@ class HomeDashboard extends StatefulWidget {
 class _HomeDashboardState extends State<HomeDashboard> {
   final _points = PointsService();
 
+  @override
+  void initState() {
+    super.initState();
+    // 앱 열릴 때 지난 날짜(자정 경과분) 자동 정산
+    if (firebaseReady) {
+      _points.settlePending().catchError((_) {});
+    }
+  }
+
   Future<void> _pickProfile() async {
     try {
       final f = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 400, maxHeight: 400, imageQuality: 75);
@@ -80,6 +89,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
         padding: const EdgeInsets.all(16),
         children: [
           _header(),
+          if (firebaseReady) _settleBanner(),
           const SizedBox(height: 20),
           GridView.count(
             crossAxisCount: 2,
@@ -151,6 +161,32 @@ class _HomeDashboardState extends State<HomeDashboard> {
           Text('$pt P', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ],
       );
+
+  Widget _settleBanner() {
+    return StreamBuilder<String?>(
+      stream: _points.watchLastSummary(),
+      builder: (context, snap) {
+        final s = snap.data;
+        if (s == null || s.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Card(
+            color: Colors.amber.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  const Text('🌙', style: TextStyle(fontSize: 20)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('지난 정산 결과\n$s', style: const TextStyle(fontSize: 12))),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   Widget _cat(String title, String emoji, Color bg, VoidCallback onTap) {
     return Card(

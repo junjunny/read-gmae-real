@@ -56,6 +56,7 @@ class DrawingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant DrawingPainter old) =>
-      old.strokes != strokes || old.current != current || old.background != background;
+  // strokes 리스트를 같은 객체로 재사용하므로(되돌리기/삭제 시 내용만 변함),
+  // 항상 다시 그리도록 한다. 캔버스가 가벼워 성능 문제 없음.
+  bool shouldRepaint(covariant DrawingPainter old) => true;
 }
