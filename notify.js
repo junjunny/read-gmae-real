@@ -33,12 +33,16 @@ async function sendTo(uid, title, body) {
 }
 
 (async () => {
-  // 1) 콕 찌르기 큐
+  // 1) 콕 찌르기 큐 — 전송 성공 시에만 삭제(실패 시 재시도, 24시간 지나면 만료 삭제)
   const pokes = await db.collection(`rooms/${ROOM}/pokes`).limit(30).get();
+  const nowMs = Date.now();
   for (const p of pokes.docs) {
     const d = p.data() || {};
-    await sendTo(d.to, `${nick(d.from)}님의 콕! 💗`, (d.message && String(d.message)) || "콕! 👈");
-    await p.ref.delete().catch(() => {});
+    const ok = await sendTo(d.to, `${nick(d.from)}님의 콕! 💗`, (d.message && String(d.message)) || "콕! 👈");
+    const ageMs = d.createdAt && d.createdAt.toMillis ? nowMs - d.createdAt.toMillis() : 0;
+    if (ok || ageMs > 24 * 3600 * 1000) {
+      await p.ref.delete().catch(() => {});
+    }
   }
 
   // 2) 19시(KST) 데일리 (하루 1회)
