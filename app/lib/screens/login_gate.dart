@@ -5,45 +5,49 @@ import '../services/auth_service.dart';
 import '../services/session_prefs.dart';
 
 /// 로그인 게이트: 본인 ID(생일) + 비밀번호.
-/// Firebase 인증으로 실제 계정을 검증하므로, 비밀번호를 모르면 접근 불가(공개 웹이어도 안전).
-class LoginGate extends StatefulWidget {
+/// Firebase 인증 상태를 구독 → 로그인되면 child, 로그아웃되면 로그인 폼.
+class LoginGate extends StatelessWidget {
   final Widget child;
   const LoginGate({super.key, required this.child});
 
-  /// 허용된 사용자 ID (생일).
   static const List<String> allowedIds = ['0421', '0118'];
-
-  /// 둘이 공유하는 방.
   static const String roomId = '0516';
 
   @override
-  State<LoginGate> createState() => _LoginGateState();
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        final user = snap.data;
+        final id = user?.email?.split('@').first;
+        if (user != null && id != null && allowedIds.contains(id)) {
+          SessionPrefs.userId = id;
+          SessionPrefs.roomId = roomId;
+          // 비차단 저장
+          SessionPrefs.save(userId: id, roomId: roomId);
+          return child;
+        }
+        return const _LoginForm();
+      },
+    );
+  }
 }
 
-class _LoginGateState extends State<LoginGate> {
+class _LoginForm extends StatefulWidget {
+  const _LoginForm();
+  @override
+  State<_LoginForm> createState() => _LoginFormState();
+}
+
+class _LoginFormState extends State<_LoginForm> {
   final _auth = AuthService();
   final _idCtrl = TextEditingController();
   final _pwCtrl = TextEditingController();
-  bool _loading = true;
-  bool _ok = false;
   bool _busy = false;
   String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _restore();
-  }
-
-  Future<void> _restore() async {
-    // 이미 로그인돼 있으면(브라우저에 세션 유지) 바로 통과
-    final id = _auth.currentId;
-    if (id != null && LoginGate.allowedIds.contains(id)) {
-      await SessionPrefs.save(userId: id, roomId: LoginGate.roomId);
-      _ok = true;
-    }
-    if (mounted) setState(() => _loading = false);
-  }
 
   Future<void> _submit() async {
     final id = _idCtrl.text.trim();
@@ -62,8 +66,7 @@ class _LoginGateState extends State<LoginGate> {
     });
     try {
       await _auth.loginOrRegister(id, pw);
-      await SessionPrefs.save(userId: id, roomId: LoginGate.roomId);
-      if (mounted) setState(() => _ok = true);
+      // 성공 시 authStateChanges가 LoginGate를 자동 전환
     } on FirebaseAuthException catch (e) {
       setState(() => _error = _msg(e.code));
     } catch (e) {
@@ -81,7 +84,7 @@ class _LoginGateState extends State<LoginGate> {
       case 'weak-password':
         return '비밀번호가 너무 약해요 (6자 이상).';
       case 'operation-not-allowed':
-        return '관리자 설정 필요: 콘솔에서 이메일/비밀번호 로그인을 켜주세요.';
+        return '콘솔에서 이메일/비밀번호 로그인을 켜주세요.';
       case 'network-request-failed':
         return '네트워크 오류 — 연결을 확인해주세요.';
       default:
@@ -91,11 +94,6 @@ class _LoginGateState extends State<LoginGate> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    if (_ok) return widget.child;
-
     return Scaffold(
       body: SafeArea(
         child: Center(

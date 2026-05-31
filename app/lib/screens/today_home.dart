@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../app_state.dart';
 import '../models/entry.dart';
+import '../services/auth_service.dart';
 import '../services/room_service.dart';
 import '../services/session_prefs.dart';
 import '../util/daily_topic.dart';
@@ -27,15 +28,20 @@ class TodayHome extends StatelessWidget {
       appBar: AppBar(
         title: Text(DateFormat('M월 d일 (E)', 'ko').format(DateTime.now())),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Row(
-              children: [
-                const ProfileAvatar(radius: 16),
-                const SizedBox(width: 6),
-                Center(child: Text(nickOf(SessionPrefs.userId), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
-              ],
-            ),
+          const ProfileAvatar(radius: 16),
+          const SizedBox(width: 6),
+          Center(child: Text(nickOf(SessionPrefs.userId), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+          PopupMenuButton<String>(
+            onSelected: (v) async {
+              if (v == 'logout') {
+                await AuthService().signOut();
+                await SessionPrefs.clear();
+                // authStateChanges가 로그인 화면으로 자동 전환
+              }
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'logout', child: Text('로그아웃')),
+            ],
           ),
         ],
       ),
