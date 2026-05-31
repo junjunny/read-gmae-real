@@ -3,19 +3,21 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:intl/intl.dart';
 
 import '../models/stroke.dart';
-import '../services/drawing_service.dart';
 import '../services/image_export.dart';
 import '../widgets/drawing_painter.dart';
 
-/// 메인 캔버스 (요구사항 3) + 전송(Firebase 업로드).
+/// 메인 캔버스. 그리기 + 저장 + (선택)제출.
+/// 이 화면은 항상 push로 진입하므로 AppBar 뒤로가기가 정상 동작한다.
 class CanvasScreen extends StatefulWidget {
   final String topic;
-  /// Firebase 미설정 시 로컬 모드(전송 비활성, 그리기·저장만).
-  final bool localOnly;
-  const CanvasScreen({super.key, this.topic = '지금 생각나는 동물 그리기', this.localOnly = false});
+
+  /// 제출 콜백. null이면 제출 버튼을 숨긴다(순수 로컬 그리기).
+  /// PNG 바이트를 받아 업로드 등을 수행하고, 성공 시 true 반환.
+  final Future<bool> Function(Uint8List png)? onSubmit;
+
+  const CanvasScreen({super.key, required this.topic, this.onSubmit});
 
   @override
   State<CanvasScreen> createState() => _CanvasScreenState();
@@ -32,7 +34,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
   double _width = 4.0;
   bool _eraser = false;
   Color _bg = Colors.white;
-  bool _sending = false;
+  bool _submitting = false;
 
   static const _palette = [
     Colors.black,
@@ -110,25 +112,28 @@ class _CanvasScreenState extends State<CanvasScreen> {
     );
   }
 
-  /// 전송: PNG → Storage 업로드 → Firestore 문서 생성.
-  Future<void> _send() async {
+  Future<void> _submit() async {
     if (_strokes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('먼저 그림을 그려주세요 ✏️')));
       return;
     }
-    setState(() => _sending = true);
+    setState(() => _submitting = true);
     try {
       final bytes = await _exportPng();
       if (bytes == null) return;
-      final date = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      await DrawingService().sendDrawing(pngBytes: bytes, topic: widget.topic, date: date);
+      final ok = await widget.onSubmit!(bytes);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('상대에게 전송했어요 💌')));
+      if (ok) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('제출 완료! 상대에게 공유됐어요 💌')));
+        Navigator.of(context).pop(true); // 제출 후 자동으로 뒤로
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('제출 실패 — 잠시 후 다시 시도해주세요')));
+      }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('전송 실패: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('제출 실패: $e')));
     } finally {
-      if (mounted) setState(() => _sending = false);
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -137,16 +142,15 @@ class _CanvasScreenState extends State<CanvasScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F7),
       appBar: AppBar(
+        // 명시적 뒤로가기 (push로 진입하므로 항상 동작)
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: '뒤로',
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
         title: Chip(avatar: const Text('🎨'), label: Text(widget.topic, overflow: TextOverflow.ellipsis)),
         actions: [
           IconButton(onPressed: _saveToGallery, icon: const Icon(Icons.download), tooltip: '이미지 저장'),
-          if (!widget.localOnly)
-            _sending
-                ? const Padding(
-                    padding: EdgeInsets.all(14),
-                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                  )
-                : IconButton(onPressed: _send, icon: const Icon(Icons.send), tooltip: '상대에게 전송'),
         ],
       ),
       body: Column(
@@ -191,6 +195,22 @@ class _CanvasScreenState extends State<CanvasScreen> {
           ),
         ],
       ),
+      // 제출 버튼: onSubmit이 있을 때만
+      bottomNavigationBar: widget.onSubmit == null
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: FilledButton.icon(
+                  onPressed: _submitting ? null : _submit,
+                  icon: _submitting
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.send),
+                  label: Text(_submitting ? '제출 중...' : '제출하고 공유하기'),
+                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+                ),
+              ),
+            ),
     );
   }
 }
@@ -238,46 +258,43 @@ class _Toolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        color: Colors.white,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              height: 38,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: palette.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (_, i) =>
-                    _swatch(palette[i], !eraser && palette[i] == selectedColor, () => onColor(palette[i])),
-              ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: Colors.white,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 38,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: palette.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (_, i) =>
+                  _swatch(palette[i], !eraser && palette[i] == selectedColor, () => onColor(palette[i])),
             ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                const Text('배경 ', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                ...bgPalette.map((c) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _swatch(c, c == selectedBg, () => onBg(c)),
-                    )),
-              ],
-            ),
-            Row(
-              children: [
-                const Icon(Icons.brush, size: 18),
-                Expanded(child: Slider(min: 1, max: 24, value: width, onChanged: onWidth)),
-                IconButton(onPressed: onEraser, isSelected: eraser, icon: const Icon(Icons.cleaning_services_outlined)),
-                IconButton(onPressed: onUndo, icon: const Icon(Icons.undo)),
-                IconButton(onPressed: onRedo, icon: const Icon(Icons.redo)),
-                IconButton(onPressed: onClear, icon: const Icon(Icons.delete_outline)),
-              ],
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Text('배경 ', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              ...bgPalette.map((c) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _swatch(c, c == selectedBg, () => onBg(c)),
+                  )),
+            ],
+          ),
+          Row(
+            children: [
+              const Icon(Icons.brush, size: 18),
+              Expanded(child: Slider(min: 1, max: 24, value: width, onChanged: onWidth)),
+              IconButton(onPressed: onEraser, isSelected: eraser, icon: const Icon(Icons.cleaning_services_outlined)),
+              IconButton(onPressed: onUndo, icon: const Icon(Icons.undo)),
+              IconButton(onPressed: onRedo, icon: const Icon(Icons.redo)),
+              IconButton(onPressed: onClear, icon: const Icon(Icons.delete_outline)),
+            ],
+          ),
+        ],
       ),
     );
   }

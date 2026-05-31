@@ -1,48 +1,44 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// 전송된 그림 1점. Firestore `couples/{id}/drawings/{drawingId}` 문서에 대응.
-class Drawing {
+/// 제출된 그림 1점. Firestore `rooms/{roomId}/entries/{id}`.
+class Entry {
   final String id;
-  final String authorUid;
-  final String authorName;
+  final String author; // 닉네임 (표시용)
+  final String authorId; // 0421 / 0118 (포인트 적립 기준)
   final String date; // yyyy-MM-dd
   final String topic;
-  final String imageUrl; // Storage 원본
-  final String thumbUrl;
+  final String imageUrl;
   final DateTime createdAt;
 
-  Drawing({
+  Entry({
     required this.id,
-    required this.authorUid,
-    required this.authorName,
+    required this.author,
+    required this.authorId,
     required this.date,
     required this.topic,
     required this.imageUrl,
-    required this.thumbUrl,
     required this.createdAt,
   });
 
-  factory Drawing.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+  factory Entry.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? {};
-    return Drawing(
+    return Entry(
       id: doc.id,
-      authorUid: d['authorUid'] ?? '',
-      authorName: d['authorName'] ?? '',
+      author: d['author'] ?? '',
+      authorId: d['authorId'] ?? '',
       date: d['date'] ?? '',
       topic: d['topic'] ?? '',
       imageUrl: d['imageUrl'] ?? '',
-      thumbUrl: d['thumbUrl'] ?? d['imageUrl'] ?? '',
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 
   Map<String, dynamic> toMap() => {
-        'authorUid': authorUid,
-        'authorName': authorName,
+        'author': author,
+        'authorId': authorId,
         'date': date,
         'topic': topic,
         'imageUrl': imageUrl,
-        'thumbUrl': thumbUrl,
         'createdAt': FieldValue.serverTimestamp(),
       };
 }
