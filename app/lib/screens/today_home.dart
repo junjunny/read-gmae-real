@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../app_state.dart';
@@ -11,14 +13,48 @@ import '../services/session_prefs.dart';
 import '../util/daily_topic.dart';
 import '../util/users.dart';
 import '../widgets/entry_image.dart';
-import '../widgets/profile_avatar.dart';
 import 'canvas_screen.dart';
 
 /// 오늘 탭: 오늘의 주제 + 그리기 진입 + 오늘 제출 현황(나/상대).
-class TodayHome extends StatelessWidget {
+class TodayHome extends StatefulWidget {
   const TodayHome({super.key});
+  @override
+  State<TodayHome> createState() => _TodayHomeState();
+}
+
+class _TodayHomeState extends State<TodayHome> {
+  Uint8List? _profileBytes;
 
   String get _today => DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+  @override
+  void initState() {
+    super.initState();
+    final b64 = SessionPrefs.profileB64;
+    if (b64 != null && b64.isNotEmpty) {
+      try {
+        _profileBytes = base64Decode(b64);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _pickProfile() async {
+    try {
+      final file = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 400, maxHeight: 400, imageQuality: 80);
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      await SessionPrefs.setProfile(base64Encode(bytes));
+      if (mounted) setState(() => _profileBytes = bytes);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('사진 선택 실패: $e')));
+    }
+  }
+
+  Future<void> _logout() async {
+    await AuthService().signOut();
+    await SessionPrefs.clear();
+    // authStateChanges가 로그인 화면으로 자동 전환
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,19 +64,22 @@ class TodayHome extends StatelessWidget {
       appBar: AppBar(
         title: Text(DateFormat('M월 d일 (E)', 'ko').format(DateTime.now())),
         actions: [
-          const ProfileAvatar(radius: 16),
+          CircleAvatar(
+            radius: 15,
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+            backgroundImage: _profileBytes != null ? MemoryImage(_profileBytes!) : null,
+            child: _profileBytes == null ? const Icon(Icons.person, size: 16) : null,
+          ),
           const SizedBox(width: 6),
           Center(child: Text(nickOf(SessionPrefs.userId), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
           PopupMenuButton<String>(
-            onSelected: (v) async {
-              if (v == 'logout') {
-                await AuthService().signOut();
-                await SessionPrefs.clear();
-                // authStateChanges가 로그인 화면으로 자동 전환
-              }
+            onSelected: (v) {
+              if (v == 'profile') _pickProfile();
+              if (v == 'logout') _logout();
             },
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'logout', child: Text('로그아웃')),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'profile', child: Row(children: [Icon(Icons.image, size: 18), SizedBox(width: 8), Text('프로필 사진 변경')])),
+              PopupMenuItem(value: 'logout', child: Row(children: [Icon(Icons.logout, size: 18), SizedBox(width: 8), Text('로그아웃')])),
             ],
           ),
         ],

@@ -32,7 +32,10 @@ class RoomService {
       imageB64: base64Encode(pngBytes),
       createdAt: DateTime.now(),
     );
-    await docRef.set(entry.toMap());
+    await docRef.set(entry.toMap()).timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception('네트워크가 느려요. 잠시 후 다시 시도해주세요.'),
+        );
   }
 
   /// 전체(최신순).

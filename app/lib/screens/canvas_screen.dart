@@ -94,6 +94,22 @@ class _CanvasScreenState extends State<CanvasScreen> {
         _current = null;
       });
 
+  Future<void> _confirmClear() async {
+    if (_strokes.isEmpty && _redoStack.isEmpty) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('전체 지우기'),
+        content: const Text('그린 그림을 모두 지울까요?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('지우기')),
+        ],
+      ),
+    );
+    if (ok == true) _clear();
+  }
+
   Future<Uint8List?> _exportPng({double pixelRatio = 3.0}) async {
     final boundary = _canvasKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
     if (boundary == null) return null;
@@ -119,8 +135,8 @@ class _CanvasScreenState extends State<CanvasScreen> {
     }
     setState(() => _submitting = true);
     try {
-      // 제출본은 Firestore 문서 용량(1MB) 내로 — 해상도를 낮춰 내보냄
-      final bytes = await _exportPng(pixelRatio: 2.0);
+      // 제출본은 Firestore 문서 용량(1MB) 내 + 빠른 전송을 위해 해상도를 낮춰 내보냄
+      final bytes = await _exportPng(pixelRatio: 1.5);
       if (bytes == null) return;
       final ok = await widget.onSubmit!(bytes);
       if (!mounted) return;
@@ -192,7 +208,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
             onEraser: () => setState(() => _eraser = !_eraser),
             onUndo: _undo,
             onRedo: _redo,
-            onClear: _clear,
+            onClear: _confirmClear,
           ),
         ],
       ),
@@ -285,17 +301,52 @@ class _Toolbar extends StatelessWidget {
                   )),
             ],
           ),
+          // 굵기 슬라이더 (전용 줄 — 버튼과 안 겹치게)
           Row(
             children: [
               const Icon(Icons.brush, size: 18),
               Expanded(child: Slider(min: 1, max: 24, value: width, onChanged: onWidth)),
-              IconButton(onPressed: onEraser, isSelected: eraser, icon: const Icon(Icons.cleaning_services_outlined)),
-              IconButton(onPressed: onUndo, icon: const Icon(Icons.undo)),
-              IconButton(onPressed: onRedo, icon: const Icon(Icons.redo)),
-              IconButton(onPressed: onClear, icon: const Icon(Icons.delete_outline)),
+            ],
+          ),
+          // 액션 버튼 (큼직하게, 균등 배치)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _ActionBtn(icon: Icons.cleaning_services_outlined, label: '지우개', active: eraser, onTap: onEraser),
+              _ActionBtn(icon: Icons.undo, label: '되돌리기', onTap: onUndo),
+              _ActionBtn(icon: Icons.redo, label: '다시', onTap: onRedo),
+              _ActionBtn(icon: Icons.delete_outline, label: '전체삭제', onTap: onClear),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ActionBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  const _ActionBtn({required this.icon, required this.label, required this.onTap, this.active = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? Theme.of(context).colorScheme.primary : Colors.black87;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 2),
+            Text(label, style: TextStyle(fontSize: 11, color: color)),
+          ],
+        ),
       ),
     );
   }
