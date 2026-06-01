@@ -37,7 +37,7 @@ final List<_GameDef> _kGames = [
   _GameDef('color2', '색깔 맞추기 🎨', '3→7색·📢페이크·🔥콤보 x2/보너스', (f) => ColorGame(onFinish: f)),
   _GameDef('tetris2', '테트리스 🧱', '줄 지워서 점수(가속) · 홀드 추가', (f) => TetrisGame(onFinish: f)),
   _GameDef('g2048', '2048 🔢', '밀어서 숫자 합치기', (f) => Game2048(onFinish: f)),
-  _GameDef('memory2', '카드 짝맞추기 🃏', '16쌍! 🃏조커 · 🔥연속 콤보', (f) => MemoryGame(onFinish: f)),
+  _GameDef('memory2', '카드 짝맞추기 🃏', '8쌍! 🃏조커 · 🔥연속 콤보', (f) => MemoryGame(onFinish: f)),
   _GameDef('whack2', '두더지 잡기 🔨', '👑황금 두더지 x3 · 💣폭탄 -3', (f) => WhackGame(onFinish: f)),
   _GameDef('snake2', '스네이크 🐍', '점점 빨라짐 · 🐢스페셜 먹이 감속', (f) => SnakeGame(onFinish: f)),
   _GameDef('sniper2', '저격수 🎯', '타겟 점점 작아짐 · 👑황금 x3', (f) => SniperGame(onFinish: f)),
@@ -49,7 +49,8 @@ final List<_GameDef> _kGames = [
   _GameDef('apple', '사과게임 🍎', '드래그로 합 10! 👑황금 · ⏰+10초', (f) => AppleGame(onFinish: f)),
 ];
 
-/// 미니게임: 하루 동안 베스트 점수 갱신 → 자정(KST)에 자동 정산(승+10/패-5).
+/// 미니게임: 하루 동안 베스트 점수 갱신 → 자정(KST)에 자동 정산
+/// (둘 다 한 게임은 승+10/패-5, 한 명만 한 게임은 참여자만 +10).
 class MiniGamesScreen extends StatelessWidget {
   const MiniGamesScreen({super.key});
 
@@ -73,7 +74,7 @@ class MiniGamesScreen extends StatelessWidget {
                     color: Colors.indigo.shade50,
                     child: const Padding(
                       padding: EdgeInsets.all(12),
-                      child: Text('🌙 오늘 하루 계속 도전해서 베스트 점수를 올리세요!\n자정에 게임별 정산: 높은 점수 +10 / 낮은 점수 -5.\n⚠️ 그 게임을 안 한 사람은 자동 패배(-5)!',
+                      child: Text('🌙 오늘 하루 계속 도전해서 베스트 점수를 올리세요!\n자정에 게임별 정산: 둘 다 했으면 높은 점수 +10 / 낮은 점수 -5.\n한 명만 한 게임은 참여자만 +10 (안 해도 감점 없음)!',
                           style: TextStyle(fontSize: 13)),
                     ),
                   ),

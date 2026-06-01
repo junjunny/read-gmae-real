@@ -286,20 +286,57 @@ class _BubbleGameState extends State<BubbleGame> {
     super.dispose();
   }
 
+  // 부드럽고 광택 있는 버블
   Widget _bubbleDot(int v, double size) {
-    if (v == _bomb) return _emojiDot('💣', size);
-    if (v == _rainbow) return _emojiDot('🌈', size);
-    return Container(
+    if (v == _rainbow) {
+      return DecoratedBox(
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: SweepGradient(colors: [
+            Color(0xFFE53935), Color(0xFFFB8C00), Color(0xFFFDD835),
+            Color(0xFF43A047), Color(0xFF1E88E5), Color(0xFF8E24AA), Color(0xFFE53935),
+          ]),
+          boxShadow: [BoxShadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 1))],
+        ),
+        child: _gloss(),
+      );
+    }
+    final Color base = v == _bomb ? const Color(0xFF546E7A) : _bubbleColors[v];
+    return DecoratedBox(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: _bubbleColors[v],
-        border: Border.all(color: Colors.white24, width: 1),
+        gradient: RadialGradient(
+          center: const Alignment(-0.35, -0.42),
+          radius: 0.95,
+          colors: [
+            Color.lerp(base, Colors.white, 0.6)!,
+            base,
+            Color.lerp(base, Colors.black, 0.22)!,
+          ],
+          stops: const [0.0, 0.55, 1.0],
+        ),
+        boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 1))],
       ),
+      child: v == _bomb
+          ? Center(child: Text('💣', style: TextStyle(fontSize: size * 0.55)))
+          : _gloss(),
     );
   }
 
-  Widget _emojiDot(String e, double size) =>
-      Center(child: Text(e, style: TextStyle(fontSize: size * 0.7)));
+  // 좌상단 광택 하이라이트
+  Widget _gloss() => const Align(
+        alignment: Alignment(-0.4, -0.45),
+        child: FractionallySizedBox(
+          widthFactor: 0.34,
+          heightFactor: 0.34,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(colors: [Colors.white, Color(0x11FFFFFF)]),
+            ),
+          ),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -320,7 +357,13 @@ class _BubbleGameState extends State<BubbleGame> {
           behavior: HitTestBehavior.opaque,
           onTapDown: (d) => _shoot(d.localPosition.dx / w, d.localPosition.dy / w),
           child: Container(
-            color: const Color(0xFF102A43),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF1B3A5B), Color(0xFF0B1B2E)],
+              ),
+            ),
             child: Stack(
               children: [
                 // 그리드 버블

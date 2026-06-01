@@ -37,7 +37,8 @@ class _BreakoutGameState extends State<BreakoutGame> {
   final _rng = Random();
   final List<_Ball> _balls = [];
   final List<_Drop> _drops = [];
-  late List<List<int>> _hp; // [row][col] 남은 내구도, 0=없음
+  // 시작 전에도 build가 _hp를 참조하므로 기본 빈 그리드로 초기화(late 크래시 방지)
+  List<List<int>> _hp = List.generate(_brickRows, (_) => List.filled(_cols, 0));
   double _paddleX = 0.5;
   int _score = 0;
   int _doubleDmg = 0; // 잔여 프레임

@@ -45,16 +45,21 @@ class _BlastGameState extends State<BlastGame> {
   final _rng = Random();
   late List<List<int>> _grid; // -1 빈칸, 0~ 색, 99 와일드
   List<_Piece?> _tray = [null, null, null];
-  int _sel = -1;
   int _score = 0;
   bool _running = false;
   bool _flash = false;
   String? _fx;
 
+  // 드래그(슬라이드)로 배치
+  final GlobalKey _boardKey = GlobalKey();
+  int _dragSlot = -1; // 끌고 있는 트레이 칸(-1=없음)
+  int? _ghostRow, _ghostCol; // 미리보기 앵커(보드 좌표)
+
   void _start() {
     _grid = List.generate(_n, (_) => List.filled(_n, -1));
     _score = 0;
-    _sel = -1;
+    _dragSlot = -1;
+    _ghostRow = _ghostCol = null;
     _flash = false;
     _fx = null;
     _refillTray();
@@ -72,7 +77,6 @@ class _BlastGameState extends State<BlastGame> {
 
   void _refillTray() {
     _tray = [_randomPiece(), _randomPiece(), _randomPiece()];
-    _sel = _tray.indexWhere((p) => p != null);
   }
 
   bool _canPlace(_Piece p, int row, int col) {
@@ -96,9 +100,45 @@ class _BlastGameState extends State<BlastGame> {
     return false;
   }
 
-  void _placeAt(int row, int col) {
-    if (!_running || _sel < 0) return;
-    final p = _tray[_sel];
+  // 드래그 시작: 트레이 칸 잡기
+  void _onDragStart(int slot, Offset global) {
+    if (!_running || _tray[slot] == null) return;
+    _dragSlot = slot;
+    _updateGhost(global);
+    setState(() {});
+  }
+
+  // 드래그 이동: 보드 위 미리보기 갱신
+  void _onDragUpdate(Offset global) {
+    if (_dragSlot < 0) return;
+    _updateGhost(global);
+    setState(() {});
+  }
+
+  // 드래그 끝: 유효하면 그 위치에 배치
+  void _onDragEnd() {
+    if (_dragSlot >= 0 && _ghostRow != null && _ghostCol != null) {
+      _place(_dragSlot, _ghostRow!, _ghostCol!);
+    }
+    _dragSlot = -1;
+    _ghostRow = _ghostCol = null;
+    setState(() {});
+  }
+
+  void _updateGhost(Offset global) {
+    final ctx = _boardKey.currentContext;
+    if (ctx == null) return;
+    final box = ctx.findRenderObject() as RenderBox;
+    final local = box.globalToLocal(global);
+    final cell = box.size.width / _n;
+    // 손가락이 조각을 가리지 않도록 한 칸 위를 앵커로
+    _ghostCol = (local.dx / cell).floor().clamp(0, _n - 1);
+    _ghostRow = (local.dy / cell - 1).round().clamp(0, _n - 1);
+  }
+
+  void _place(int slot, int row, int col) {
+    if (!_running) return;
+    final p = _tray[slot];
     if (p == null || !_canPlace(p, row, col)) return;
     final code = p.wild ? 99 : p.color;
     var placed = 0;
@@ -107,7 +147,7 @@ class _BlastGameState extends State<BlastGame> {
       placed++;
     }
     _score += placed;
-    _tray[_sel] = null;
+    _tray[slot] = null;
 
     // 와일드: 놓인 칸의 가로·세로 줄을 통째로 제거
     if (p.wild) {
@@ -127,8 +167,6 @@ class _BlastGameState extends State<BlastGame> {
     // 트레이 비었으면 리필
     if (_tray.every((e) => e == null)) {
       _refillTray();
-    } else {
-      _sel = _tray.indexWhere((e) => e != null);
     }
 
     if (!_anyMovePossible()) {
@@ -191,81 +229,107 @@ class _BlastGameState extends State<BlastGame> {
       body: !_running
           ? Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(_score > 0 ? '게임 오버! 점수 $_score 🟦' : '조각을 골라(탭) 보드에 놓아(탭)\n줄을 채워 터뜨리세요!\n🔥2줄 동시 x1.5 · 🌟와일드', textAlign: TextAlign.center, style: const TextStyle(fontSize: 17)),
+                Text(_score > 0 ? '게임 오버! 점수 $_score 🟦' : '조각을 보드 위로 끌어다(슬라이드)\n원하는 위치에 놓아 줄을 채우세요!\n🔥2줄 동시 x1.5 · 🌟와일드', textAlign: TextAlign.center, style: const TextStyle(fontSize: 17)),
                 const SizedBox(height: 12),
                 FilledButton(onPressed: _start, child: Text(_score > 0 ? '다시' : '시작')),
               ]),
             )
-          : Column(
-              children: [
-                if (_fx != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(_fx!, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFF6F00))),
+          : _gameBody(),
+    );
+  }
+
+  Widget _gameBody() {
+    // 드래그 중인 조각의 미리보기(고스트) 셀 계산
+    final ghost = <String, bool>{}; // 'r,c' -> 유효 여부
+    if (_dragSlot >= 0 && _ghostRow != null && _ghostCol != null) {
+      final p = _tray[_dragSlot];
+      if (p != null) {
+        final valid = _canPlace(p, _ghostRow!, _ghostCol!);
+        for (final cell in p.cells) {
+          final r = _ghostRow! + cell[0], c = _ghostCol! + cell[1];
+          if (r >= 0 && r < _n && c >= 0 && c < _n) ghost['$r,$c'] = valid;
+        }
+      }
+    }
+    return Column(
+      children: [
+        if (_fx != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(_fx!, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFF6F00))),
+          ),
+        Expanded(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: _flash ? const Color(0xFFFFE0B2) : const Color(0xFF263238),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                Expanded(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: AspectRatio(
-                        aspectRatio: 1,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: _flash ? const Color(0xFFFFE0B2) : const Color(0xFF263238),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: GridView.builder(
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: _n, mainAxisSpacing: 2, crossAxisSpacing: 2),
-                            itemCount: _n * _n,
-                            itemBuilder: (_, i) {
-                              final r = i ~/ _n, c = i % _n;
-                              final v = _grid[r][c];
-                              return GestureDetector(
-                                onTap: () => _placeAt(r, c),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: v == -1 ? const Color(0xFF37474F) : _cellColor(v),
-                                    borderRadius: BorderRadius.circular(3),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
+                  child: GridView.builder(
+                    key: _boardKey,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: _n, mainAxisSpacing: 2, crossAxisSpacing: 2),
+                    itemCount: _n * _n,
+                    itemBuilder: (_, i) {
+                      final r = i ~/ _n, c = i % _n;
+                      final v = _grid[r][c];
+                      final g = ghost['$r,$c'];
+                      Color cellColor;
+                      if (v != -1) {
+                        cellColor = _cellColor(v);
+                      } else if (g != null) {
+                        cellColor = g ? const Color(0x9981C784) : const Color(0x99E57373);
+                      } else {
+                        cellColor = const Color(0xFF37474F);
+                      }
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 90),
+                        decoration: BoxDecoration(color: cellColor, borderRadius: BorderRadius.circular(3)),
+                      );
+                    },
                   ),
                 ),
-                const Text('조각을 고른 뒤 보드를 탭하세요', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: List.generate(3, (i) => _traySlot(i)),
-                  ),
-                ),
-              ],
+              ),
             ),
+          ),
+        ),
+        const Text('조각을 끌어서 보드에 놓으세요 (슬라이드)', style: TextStyle(color: Colors.grey, fontSize: 12)),
+        Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(3, (i) => _traySlot(i)),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _traySlot(int i) {
     final p = _tray[i];
-    final selected = _sel == i;
+    final dragging = _dragSlot == i;
     return GestureDetector(
-      onTap: p == null ? null : () => setState(() => _sel = i),
-      child: Container(
-        width: 92,
-        height: 92,
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFE3F2FD) : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: selected ? Colors.blue : Colors.grey.shade300, width: selected ? 2.5 : 1),
+      onPanStart: p == null ? null : (d) => _onDragStart(i, d.globalPosition),
+      onPanUpdate: p == null ? null : (d) => _onDragUpdate(d.globalPosition),
+      onPanEnd: p == null ? null : (_) => _onDragEnd(),
+      child: Opacity(
+        opacity: dragging ? 0.4 : 1,
+        child: Container(
+          width: 92,
+          height: 92,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: p == null ? const SizedBox() : _piecePreview(p),
         ),
-        child: p == null ? const SizedBox() : _piecePreview(p),
       ),
     );
   }

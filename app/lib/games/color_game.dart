@@ -103,9 +103,13 @@ class _ColorGameState extends State<ColorGame> {
             )
           : AnimatedContainer(
               duration: const Duration(milliseconds: 150),
+              width: double.infinity,
+              height: double.infinity,
+              alignment: Alignment.center,
               color: _flash ? const Color(0xFFFFF59D) : Colors.transparent,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),

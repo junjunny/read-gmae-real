@@ -63,7 +63,7 @@ class _FlappyGameState extends State<FlappyGame> {
       _start();
       return;
     }
-    _vy = -0.018;
+    _vy = -0.0135; // 점프 완화(덜 민감하게)
   }
 
   void _tick() {
@@ -72,23 +72,24 @@ class _FlappyGameState extends State<FlappyGame> {
     if (_invincible > 0) _invincible--;
     if (_wide > 0) _wide--;
 
-    // 중력
-    _vy += 0.0010;
+    // 중력(완만하게) + 낙하 속도 상한
+    _vy += 0.00060;
+    if (_vy > 0.018) _vy = 0.018;
     _birdY += _vy;
 
-    // 파이프 스폰(약 1.5초마다)
-    if (_pipes.isEmpty || _pipes.last.x < 0.62) {
-      final gapY = 0.22 + _rng.nextDouble() * 0.56;
-      final gapHalf = _wide > 0 ? 0.24 : 0.16;
+    // 파이프 스폰(간격 넉넉하게)
+    if (_pipes.isEmpty || _pipes.last.x < 0.40) {
+      final gapY = 0.26 + _rng.nextDouble() * 0.48;
+      final gapHalf = _wide > 0 ? 0.27 : 0.215; // 기본 간격 넓힘
       _pipes.add(_Pipe(1.15, gapY, gapHalf));
       // 가끔 아이템 등장(파이프 사이 빈 공간)
-      if (_rng.nextInt(100) < 40) {
-        _items.add(_Item(1.15 + 0.31, 0.2 + _rng.nextDouble() * 0.6, _rng.nextInt(2)));
+      if (_rng.nextInt(100) < 45) {
+        _items.add(_Item(1.15 + 0.38, 0.22 + _rng.nextDouble() * 0.56, _rng.nextInt(2)));
       }
     }
 
-    // 이동
-    const speed = 0.006;
+    // 이동(스크롤 속도 완화)
+    const speed = 0.0042;
     for (final p in _pipes) {
       p.x -= speed;
     }
@@ -201,7 +202,10 @@ class _FlappyGameState extends State<FlappyGame> {
                   height: _birdR * 2 * w,
                   child: Opacity(
                     opacity: _invincible > 0 && (_frame ~/ 5).isEven ? 0.4 : 1,
-                    child: const FittedBox(child: Text('🐦', style: TextStyle(fontSize: 30))),
+                    child: Transform.rotate(
+                      angle: (_vy * 16).clamp(-0.5, 1.0), // 오를 땐 위로, 떨어질 땐 아래로 부드럽게 기울기
+                      child: const FittedBox(child: Text('🐦', style: TextStyle(fontSize: 30))),
+                    ),
                   ),
                 ),
                 if (!_running)

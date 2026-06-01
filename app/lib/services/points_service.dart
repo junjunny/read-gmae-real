@@ -283,7 +283,8 @@ class PointsService {
     }, SetOptions(merge: true));
   }
 
-  /// 하루치 정산: 게임 승패(+10/-5) + 그림 참여(+5), 포인트 반영 후 그날 데이터 삭제.
+  /// 하루치 정산: 둘 다 한 게임은 승+10/패-5, 한 명만 한 게임은 참여자만 +10(미참여 감점 없음),
+  /// 그림 참여(+50), 포인트 반영 후 그날 데이터 삭제.
   Future<String?> _settleDay(String date) async {
     final daySnap = await _dayRef(date).get();
     final games = (daySnap.data()?['games'] ?? {}) as Map<String, dynamic>;
@@ -316,12 +317,10 @@ class PointsService {
         delta[lose] = delta[lose]! - 5;
         parts.add('$key:${_nick(win)}승');
       } else {
-        // 한쪽만 플레이 → 안 한 사람 자동 패배
+        // 한쪽만 플레이 → 참여자만 +10 (미참여자는 감점 없음)
         final win = s1 != null ? '0421' : '0118';
-        final lose = win == '0421' ? '0118' : '0421';
         delta[win] = delta[win]! + 10;
-        delta[lose] = delta[lose]! - 5;
-        parts.add('$key:${_nick(win)}승(${_nick(lose)}미플레이)');
+        parts.add('$key:${_nick(win)}만 참여 +10');
       }
     });
     for (final u in ['0421', '0118']) {
