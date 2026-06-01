@@ -41,22 +41,77 @@ class _BreakoutGameState extends State<BreakoutGame> {
   List<List<int>> _hp = List.generate(_brickRows, (_) => List.filled(_cols, 0));
   double _paddleX = 0.5;
   int _score = 0;
+  int _level = 1;
+  int _lives = 3;
   int _doubleDmg = 0; // 잔여 프레임
   int _magnet = 0; // 잔여 프레임
   bool _running = false;
-  Timer? _loop;
+  String? _fx; // 레벨업 배너
+  Timer? _loop, _fxTimer;
 
   int get _damage => _doubleDmg > 0 ? 2 : 1;
+  // 레벨이 오를수록 공이 빨라짐
+  double get _spd => 0.012 * (1 + (_level - 1) * 0.10);
+
+  // 레벨별 맵: 패턴 6종을 돌면서, 한 바퀴마다 내구도(tier) +1.
+  List<List<int>> _buildMap(int level) {
+    final pattern = (level - 1) % 6;
+    final tier = (level - 1) ~/ 6;
+    return List.generate(_brickRows, (r) {
+      return List.generate(_cols, (c) {
+        bool fill;
+        switch (pattern) {
+          case 0:
+            fill = true; // 가득
+            break;
+          case 1:
+            fill = (r + c) % 2 == 0; // 체커보드
+            break;
+          case 2:
+            fill = c % 2 == 0; // 세로 기둥
+            break;
+          case 3:
+            fill = r % 2 == 0; // 가로 줄
+            break;
+          case 4:
+            fill = r == 0 || r == _brickRows - 1 || c == 0 || c == _cols - 1 || c == _cols ~/ 2; // 프레임+중앙기둥
+            break;
+          default:
+            fill = ((r - _brickRows ~/ 2).abs() + (c - _cols ~/ 2).abs()) <= 4; // 다이아몬드
+            break;
+        }
+        if (!fill) return 0;
+        final hp = 1 + (r < 3 ? 1 : 0) + tier;
+        return hp > 4 ? 4 : hp;
+      });
+    });
+  }
+
+  void _flashLevel() {
+    _fx = '레벨 $_level! 🚀';
+    _fxTimer?.cancel();
+    _fxTimer = Timer(const Duration(milliseconds: 900), () {
+      if (mounted) setState(() => _fx = null);
+    });
+  }
+
+  // 패들 위에 멈춘 새 공
+  void _spawnStuckBall() {
+    _balls.add(_Ball(_paddleX, _paddleY - _ballR - 0.01, 0, 0, stuck: true, stuckDx: 0));
+  }
 
   void _start() {
-    _hp = List.generate(_brickRows, (r) => List.generate(_cols, (c) => r < 3 ? 2 : 1));
+    _level = 1;
+    _lives = 3;
+    _hp = _buildMap(_level);
     _balls.clear();
     _drops.clear();
     _paddleX = 0.5;
     _score = 0;
     _doubleDmg = 0;
     _magnet = 0;
-    _balls.add(_Ball(0.5, _paddleY - _ballR - 0.01, 0, 0, stuck: true, stuckDx: 0));
+    _fx = null;
+    _spawnStuckBall();
     _running = true;
     _loop?.cancel();
     _loop = Timer.periodic(const Duration(milliseconds: 16), (_) => _tick());
@@ -69,8 +124,8 @@ class _BreakoutGameState extends State<BreakoutGame> {
       if (b.stuck) {
         b.stuck = false;
         final dir = _rng.nextBool() ? 1 : -1;
-        b.vx = 0.006 * dir;
-        b.vy = -0.013;
+        b.vx = _spd * 0.5 * dir;
+        b.vy = -_spd;
         any = true;
       }
     }
@@ -123,9 +178,9 @@ class _BreakoutGameState extends State<BreakoutGame> {
             b.vx = 0;
             b.vy = 0;
           } else {
-            b.vy = -b.vy.abs();
+            b.vy = -_spd; // 레벨 속도 유지
             // 패들 위치에 따라 반사각 조절
-            b.vx = ((b.x - _paddleX) / (_paddleW / 2)) * 0.011;
+            b.vx = ((b.x - _paddleX) / (_paddleW / 2)) * _spd * 0.85;
             b.y = _paddleY - _ballR - 0.01;
           }
         }
@@ -136,8 +191,16 @@ class _BreakoutGameState extends State<BreakoutGame> {
     // 바닥으로 떨어진 공 제거
     _balls.removeWhere((b) => b.y > 1.02);
     if (_balls.isEmpty) {
-      _end();
-      return;
+      _lives--;
+      if (_lives <= 0) {
+        _end();
+        return;
+      }
+      // 목숨 차감 후 패들에 새 공(효과 초기화)
+      _doubleDmg = 0;
+      _magnet = 0;
+      _drops.clear();
+      _spawnStuckBall();
     }
 
     // 아이템 낙하
@@ -152,10 +215,17 @@ class _BreakoutGameState extends State<BreakoutGame> {
       return d.y > 1.05;
     });
 
-    // 전부 깼으면 새 판
+    // 전부 깼으면 다음 레벨(새 맵 + 클리어 보너스 + 더 빠른 공)
     if (_hp.every((row) => row.every((v) => v == 0))) {
-      _score += 100; // 클리어 보너스
-      _hp = List.generate(_brickRows, (r) => List.generate(_cols, (c) => r < 3 ? 2 : 1));
+      _score += 100 * _level; // 레벨 비례 클리어 보너스
+      _level++;
+      _hp = _buildMap(_level);
+      _balls.clear();
+      _drops.clear();
+      _doubleDmg = 0;
+      _magnet = 0;
+      _spawnStuckBall(); // 다음 레벨은 탭해서 발사
+      _flashLevel();
     }
 
     setState(() {});
@@ -180,8 +250,8 @@ class _BreakoutGameState extends State<BreakoutGame> {
           _hp[r][c] = max(0, _hp[r][c] - _damage);
           if (_hp[r][c] == 0) {
             _score += 10;
-            // 25% 확률로 아이템 드랍
-            if (_rng.nextInt(100) < 25) {
+            // 레벨이 오를수록 아이템 드랍 확률 감소(25%→최소 8%)
+            if (_rng.nextInt(100) < max(8, 25 - _level * 2)) {
               _drops.add(_Drop((c + 0.5) / _cols, top, _rng.nextInt(3)));
             }
           }
@@ -216,15 +286,27 @@ class _BreakoutGameState extends State<BreakoutGame> {
   @override
   void dispose() {
     _loop?.cancel();
+    _fxTimer?.cancel();
     super.dispose();
   }
 
-  Color _brickColor(int r, int hp) => hp >= 2 ? const Color(0xFF5E35B1) : Color.lerp(const Color(0xFFEF5350), const Color(0xFF42A5F5), r / _brickRows)!;
+  Color _brickColor(int r, int hp) {
+    switch (hp) {
+      case 1:
+        return Color.lerp(const Color(0xFFEF5350), const Color(0xFF42A5F5), r / _brickRows)!;
+      case 2:
+        return const Color(0xFF5E35B1);
+      case 3:
+        return const Color(0xFFFB8C00);
+      default:
+        return const Color(0xFFB71C1C); // 4HP
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('벽돌깨기 🧱   $_score${_doubleDmg > 0 ? '   💥x2' : ''}${_magnet > 0 ? '   🧲' : ''}')),
+      appBar: AppBar(title: Text('벽돌깨기 🧱  Lv$_level  ${'❤️' * _lives}  $_score${_doubleDmg > 0 ? ' 💥x2' : ''}${_magnet > 0 ? ' 🧲' : ''}')),
       body: LayoutBuilder(builder: (context, box) {
         final w = box.maxWidth, h = box.maxHeight;
         return GestureDetector(
@@ -279,6 +361,11 @@ class _BreakoutGameState extends State<BreakoutGame> {
                     ),
                   ),
                 ),
+                // 레벨업 배너
+                if (_fx != null)
+                  Center(
+                    child: Text(_fx!, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Color(0xFFFFD54F))),
+                  ),
                 if (!_running)
                   Center(
                     child: Container(
@@ -287,7 +374,7 @@ class _BreakoutGameState extends State<BreakoutGame> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(_score > 0 ? '게임 오버! 점수 $_score 🧱' : '드래그로 패들 이동, 탭해서 공 발사!\n💥x2데미지 · ➕공분열 · 🧲자석', textAlign: TextAlign.center, style: const TextStyle(fontSize: 17)),
+                          Text(_score > 0 ? '게임 오버! 레벨 $_level · 점수 $_score 🧱' : '드래그로 패들 이동, 탭해서 발사!\n맵을 다 깨면 다음 레벨(점점 빨라짐)\n목숨 ❤️3 · 💥x2 · ➕분열 · 🧲자석', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
                           const SizedBox(height: 12),
                           FilledButton(onPressed: _start, child: Text(_score > 0 ? '다시' : '시작')),
                         ],
