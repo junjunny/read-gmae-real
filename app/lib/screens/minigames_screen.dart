@@ -100,6 +100,11 @@ class _GameCard extends StatelessWidget {
   final PointsService svc;
   const _GameCard({required this.def, required this.s1, required this.s2, required this.record, required this.svc});
 
+  // 실시간 승자(오늘 베스트가 더 높은 사람). 동점/둘 다 무기록이면 승자 없음.
+  bool get _hasAny => s1 != null || s2 != null;
+  bool get _win1 => _hasAny && (s1 ?? -1) > (s2 ?? -1);
+  bool get _win2 => _hasAny && (s2 ?? -1) > (s1 ?? -1);
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -126,9 +131,9 @@ class _GameCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _chip('주니', s1),
+                _chip('주니', s1, _win1),
                 const Text('오늘 베스트', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                _chip('히수', s2),
+                _chip('히수', s2, _win2),
               ],
             ),
             const SizedBox(height: 6),
@@ -150,12 +155,41 @@ class _GameCard extends StatelessWidget {
     );
   }
 
-  Widget _chip(String name, int? v) => Column(
+  Widget _chip(String name, int? v, bool winning) => Column(
         children: [
-          Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-          Text(v?.toString() ?? '-', style: const TextStyle(fontSize: 18)),
+          _highlightName(name, winning),
+          Text(v?.toString() ?? '-', style: TextStyle(fontSize: 18, fontWeight: winning ? FontWeight.bold : FontWeight.normal)),
         ],
       );
+
+  // 승자 이름에 형광펜 스타일 하이라이트
+  Widget _highlightName(String name, bool winning) {
+    final text = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+    );
+    if (!winning) return text;
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        // 형광펜 자국(글자 아래쪽을 덮는 노란 마커, 살짝 기울임)
+        Positioned(
+          left: -2,
+          right: -2,
+          bottom: 2,
+          height: 13,
+          child: Transform.rotate(
+            angle: -0.025,
+            child: Container(
+              decoration: BoxDecoration(color: const Color(0xCCFFEE58), borderRadius: BorderRadius.circular(4)),
+            ),
+          ),
+        ),
+        text,
+      ],
+    );
+  }
 
   Future<void> _play(BuildContext context) async {
     final uid = SessionPrefs.userId ?? '0421';
