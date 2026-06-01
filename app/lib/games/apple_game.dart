@@ -164,7 +164,15 @@ class _AppleGameState extends State<AppleGame> {
                   onPanEnd: (_) => _onPanEnd(),
                   child: Stack(
                     children: [
-                      Container(color: const Color(0xFFFFFDE7)),
+                      Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Color(0xFFFFFDE7), Color(0xFFFFF1C4)],
+                          ),
+                        ),
+                      ),
                       for (var r = 0; r < _rows; r++)
                         for (var c = 0; c < _cols; c++)
                           if (_v[r][c] > 0)
@@ -205,11 +213,18 @@ class _AppleGameState extends State<AppleGame> {
     Color bg = const Color(0xFFE53935);
     if (golden) bg = const Color(0xFFFFB300);
     if (timeA) bg = const Color(0xFF26A69A);
+    if (sel) bg = Color.lerp(bg, Colors.white, 0.35)!;
     return Container(
       decoration: BoxDecoration(
-        color: sel ? Color.lerp(bg, Colors.white, 0.35) : bg,
+        gradient: RadialGradient(
+          center: const Alignment(-0.35, -0.4),
+          radius: 0.95,
+          colors: [Color.lerp(bg, Colors.white, 0.5)!, bg, Color.lerp(bg, Colors.black, 0.18)!],
+          stops: const [0.0, 0.55, 1.0],
+        ),
         shape: BoxShape.circle,
         border: golden ? Border.all(color: Colors.orange.shade900, width: 2) : null,
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 1.5, offset: const Offset(0, 1))],
       ),
       child: Center(
         child: FittedBox(

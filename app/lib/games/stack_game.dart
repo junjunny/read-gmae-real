@@ -125,7 +125,13 @@ class _StackGameState extends State<StackGame> {
                 // 최근 14층만 그려서 위로 쌓이는 느낌
                 final visible = _stack.length > 14 ? _stack.sublist(_stack.length - 14) : _stack;
                 return Container(
-                  color: const Color(0xFFEAF2FB),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xFFEAF2FB), Color(0xFFC7DCF2)],
+                    ),
+                  ),
                   width: double.infinity,
                   height: double.infinity,
                   child: Stack(

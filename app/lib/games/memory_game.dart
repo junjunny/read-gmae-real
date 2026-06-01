@@ -101,6 +101,7 @@ class _MemoryGameState extends State<MemoryGame> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFEFF4FB),
       appBar: AppBar(title: Text('카드 짝맞추기 🃏  ⏱️${_elapsed}s  ⭐$_score  🔥$_combo')),
       body: !_started
           ? Center(
@@ -119,18 +120,29 @@ class _MemoryGameState extends State<MemoryGame> {
                     itemCount: _cards.length,
                     itemBuilder: (_, i) {
                       final show = _flipped.contains(i) || _matched.contains(i);
+                      final matched = _matched.contains(i);
                       final isJoker = _cards[i] == _joker;
+                      final primary = Theme.of(context).colorScheme.primary;
+                      final base = matched
+                          ? (isJoker ? Colors.amber.shade200 : Colors.green.shade200)
+                          : (show ? Colors.white : primary);
                       return GestureDetector(
                         onTap: () => _tap(i),
-                        child: Container(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          curve: Curves.easeOut,
                           decoration: BoxDecoration(
-                            color: _matched.contains(i)
-                                ? (isJoker ? Colors.amber.shade100 : Colors.green.shade100)
-                                : (show ? Colors.white : Theme.of(context).colorScheme.primary),
-                            borderRadius: BorderRadius.circular(10),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [Color.lerp(base, Colors.white, 0.35)!, base, Color.lerp(base, Colors.black, 0.08)!],
+                              stops: const [0.0, 0.5, 1.0],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: show && isJoker ? Colors.amber : Colors.grey.shade300, width: show && isJoker ? 2 : 1),
+                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: show ? 0.10 : 0.22), blurRadius: 3, offset: const Offset(0, 2))],
                           ),
-                          child: Center(child: Text(show ? _cards[i] : '?', style: TextStyle(fontSize: 26, color: show ? null : Colors.white))),
+                          child: Center(child: Text(show ? _cards[i] : '?', style: TextStyle(fontSize: 26, color: show ? null : Colors.white70))),
                         ),
                       );
                     },

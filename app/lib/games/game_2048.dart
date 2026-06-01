@@ -123,6 +123,7 @@ class _Game2048State extends State<Game2048> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFAF8EF),
       appBar: AppBar(title: Text('2048 🔢   점수 $_score')),
       body: !_started || _over
           ? Center(
@@ -157,8 +158,23 @@ class _Game2048State extends State<Game2048> {
                           itemCount: n * n,
                           itemBuilder: (_, i) {
                             final v = _g[i ~/ n][i % n];
-                            return Container(
-                              decoration: BoxDecoration(color: _tile(v), borderRadius: BorderRadius.circular(6)),
+                            final base = _tile(v);
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 120),
+                              curve: Curves.easeOut,
+                              decoration: BoxDecoration(
+                                gradient: v == 0
+                                    ? null
+                                    : LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [Color.lerp(base, Colors.white, 0.22)!, base, Color.lerp(base, Colors.black, 0.10)!],
+                                        stops: const [0.0, 0.55, 1.0],
+                                      ),
+                                color: v == 0 ? base : null,
+                                borderRadius: BorderRadius.circular(7),
+                                boxShadow: v == 0 ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 3, offset: const Offset(0, 2))],
+                              ),
                               child: Center(child: Text(v == 0 ? '' : '$v', style: TextStyle(fontSize: v >= 1024 ? 18 : 24, fontWeight: FontWeight.bold, color: v <= 4 ? const Color(0xFF776E65) : Colors.white))),
                             );
                           },

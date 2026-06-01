@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_fx.dart';
+
 /// 블록 블라스트 🟦: 아래 3개 조각 중 하나를 골라(탭) 보드에 놓아(탭) 줄(가로·세로)을 채운다.
 /// 줄이 가득 차면 제거 + 점수! 🔥 2줄 이상 동시 제거 시 x1.5 불꽃 보너스 / 🌟 와일드 블록은 가로·세로를 통째로 제거.
 class BlastGame extends StatefulWidget {
@@ -228,11 +230,13 @@ class _BlastGameState extends State<BlastGame> {
       appBar: AppBar(title: Text('블록 블라스트 🟦   $_score')),
       body: !_running
           ? Center(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(_score > 0 ? '게임 오버! 점수 $_score 🟦' : '조각을 보드 위로 끌어다(슬라이드)\n원하는 위치에 놓아 줄을 채우세요!\n🔥2줄 동시 x1.5 · 🌟와일드', textAlign: TextAlign.center, style: const TextStyle(fontSize: 17)),
-                const SizedBox(height: 12),
-                FilledButton(onPressed: _start, child: Text(_score > 0 ? '다시' : '시작')),
-              ]),
+              child: PopPanel(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text(_score > 0 ? '게임 오버! 점수 $_score 🟦' : '조각을 보드 위로 끌어다(슬라이드)\n원하는 위치에 놓아 줄을 채우세요!\n🔥2줄 동시 x1.5 · 🌟와일드', textAlign: TextAlign.center, style: const TextStyle(fontSize: 17)),
+                  const SizedBox(height: 12),
+                  FilledButton(onPressed: _start, child: Text(_score > 0 ? '다시' : '시작')),
+                ]),
+              ),
             )
           : _gameBody(),
     );
@@ -288,9 +292,22 @@ class _BlastGameState extends State<BlastGame> {
                       } else {
                         cellColor = const Color(0xFF37474F);
                       }
+                      final filled = v != -1;
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 90),
-                        decoration: BoxDecoration(color: cellColor, borderRadius: BorderRadius.circular(3)),
+                        decoration: BoxDecoration(
+                          gradient: filled
+                              ? LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [Color.lerp(cellColor, Colors.white, 0.3)!, cellColor, Color.lerp(cellColor, Colors.black, 0.14)!],
+                                  stops: const [0.0, 0.5, 1.0],
+                                )
+                              : null,
+                          color: filled ? null : cellColor,
+                          borderRadius: BorderRadius.circular(5),
+                          boxShadow: filled ? [BoxShadow(color: Colors.black.withValues(alpha: 0.22), blurRadius: 2, offset: const Offset(0, 1))] : null,
+                        ),
                       );
                     },
                   ),
@@ -359,8 +376,17 @@ class _BlastGameState extends State<BlastGame> {
                     height: unit - 2,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: p.wild ? const Color(0xFFFFD54F) : _pieceColors[p.color],
-                        borderRadius: BorderRadius.circular(3),
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color.lerp(p.wild ? const Color(0xFFFFD54F) : _pieceColors[p.color], Colors.white, 0.3)!,
+                            p.wild ? const Color(0xFFFFD54F) : _pieceColors[p.color],
+                            Color.lerp(p.wild ? const Color(0xFFFFD54F) : _pieceColors[p.color], Colors.black, 0.14)!,
+                          ],
+                          stops: const [0.0, 0.5, 1.0],
+                        ),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                       child: p.wild ? const Center(child: Text('🌟', style: TextStyle(fontSize: 11))) : null,
                     ),

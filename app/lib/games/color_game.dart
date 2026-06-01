@@ -90,6 +90,7 @@ class _ColorGameState extends State<ColorGame> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFEFF4FB),
       appBar: AppBar(title: Text('색깔 맞추기 🎨  ⏱️$_left  ⭐$_score  🔥$_combo')),
       body: !_running
           ? Center(
@@ -121,7 +122,20 @@ class _ColorGameState extends State<ColorGame> {
                     children: _choices
                         .map((c) => GestureDetector(
                               onTap: () => _pick(c),
-                              child: Container(width: 64, height: 64, decoration: BoxDecoration(color: _colors[c], borderRadius: BorderRadius.circular(14))),
+                              child: Container(
+                                width: 66,
+                                height: 66,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [Color.lerp(_colors[c], Colors.white, 0.3)!, _colors[c], Color.lerp(_colors[c], Colors.black, 0.15)!],
+                                    stops: const [0.0, 0.5, 1.0],
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [BoxShadow(color: _colors[c].withValues(alpha: 0.45), blurRadius: 8, offset: const Offset(0, 3))],
+                                ),
+                              ),
                             ))
                         .toList(),
                   ),

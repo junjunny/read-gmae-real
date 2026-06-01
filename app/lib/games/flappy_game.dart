@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_fx.dart';
+
 /// 플래피버드 🐦: 탭해서 날아올라 파이프 사이를 통과! 통과할 때마다 +1점.
 /// ⭐ 별을 먹으면 3초 무적 / ↔️ 아이템을 먹으면 잠깐 파이프 간격이 넓어진다.
 class FlappyGame extends StatefulWidget {
@@ -165,7 +167,13 @@ class _FlappyGameState extends State<FlappyGame> {
         child: LayoutBuilder(builder: (context, box) {
           final w = box.maxWidth, h = box.maxHeight;
           return Container(
-            color: const Color(0xFF81D4FA),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFB3E5FC), Color(0xFF4FC3F7)],
+              ),
+            ),
             child: Stack(
               children: [
                 // 파이프
@@ -175,14 +183,40 @@ class _FlappyGameState extends State<FlappyGame> {
                     top: 0,
                     width: _pipeW * w,
                     height: (p.gapY - p.gapHalf) * h,
-                    child: Container(color: const Color(0xFF43A047)),
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          colors: [Color(0xFF66BB6A), Color(0xFF388E3C), Color(0xFF2E7D32)],
+                          stops: [0.0, 0.45, 1.0],
+                        ),
+                        border: Border(
+                          left: BorderSide(color: Color(0x33000000), width: 1),
+                          right: BorderSide(color: Color(0x33000000), width: 1),
+                        ),
+                      ),
+                    ),
                   ),
                   Positioned(
                     left: p.x * w,
                     top: (p.gapY + p.gapHalf) * h,
                     width: _pipeW * w,
                     bottom: 0,
-                    child: Container(color: const Color(0xFF43A047)),
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          colors: [Color(0xFF66BB6A), Color(0xFF388E3C), Color(0xFF2E7D32)],
+                          stops: [0.0, 0.45, 1.0],
+                        ),
+                        border: Border(
+                          left: BorderSide(color: Color(0x33000000), width: 1),
+                          right: BorderSide(color: Color(0x33000000), width: 1),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
                 // 아이템
@@ -213,9 +247,7 @@ class _FlappyGameState extends State<FlappyGame> {
                 ),
                 if (!_running)
                   Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(16)),
+                    child: PopPanel(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [

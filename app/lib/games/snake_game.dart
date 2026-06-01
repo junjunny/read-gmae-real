@@ -171,7 +171,11 @@ class _SnakeGameState extends State<SnakeGame> {
                         aspectRatio: cols / rows,
                         child: Container(
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1F8E9),
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [Color(0xFFF1F8E9), Color(0xFFDCEDC8)],
+                            ),
                             border: Border.all(color: Colors.green.shade300, width: 2),
                             borderRadius: BorderRadius.circular(8),
                           ),

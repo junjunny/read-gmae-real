@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_fx.dart';
+
 /// 버블슈터 🫧: 아래에서 버블을 쏴 같은 색 3개 이상을 터뜨린다.
 /// 💣 폭탄 버블은 주변까지 한 번에! / 🌈 레인보우 버블은 어떤 색과도 매치!
 /// 버블이 바닥까지 내려오면 게임 오버.
@@ -16,8 +18,7 @@ class BubbleGame extends StatefulWidget {
 const int _cols = 9;
 const double _cell = 1.0 / _cols;
 const double _rad = _cell / 2;
-const int _bomb = 90; // 발사체 전용 특수
-const int _rainbow = 91;
+const int _rainbow = 91; // 발사체 전용 특수(만능 매치)
 const List<Color> _bubbleColors = [
   Color(0xFFE53935), Color(0xFF1E88E5), Color(0xFF43A047), Color(0xFFFDD835), Color(0xFF8E24AA),
 ];
@@ -59,8 +60,7 @@ class _BubbleGameState extends State<BubbleGame> {
 
   int _newBubble() {
     final roll = _rng.nextInt(100);
-    if (roll < 8) return _rainbow;
-    if (roll < 18) return _bomb;
+    if (roll < 12) return _rainbow; // 🌈 만능 버블
     // 보드에 남아있는 색 위주로
     final present = <int>{};
     for (final row in _grid) {
@@ -135,39 +135,24 @@ class _BubbleGameState extends State<BubbleGame> {
     }
 
     final shot = _cur;
-    if (shot == _bomb) {
-      // 주변 8칸 + 자기 자리 제거
-      var removed = 0;
-      for (var dr = -1; dr <= 1; dr++) {
-        for (var dc = -1; dc <= 1; dc++) {
-          final nr = row + dr, nc = col + dc;
-          if (nr >= 0 && nr < _maxRows && nc >= 0 && nc < _cols && _grid[nr][nc] != -1) {
-            _grid[nr][nc] = -1;
-            removed++;
+    if (shot == _rainbow) {
+      // 🌈 만능 버블: 닿는 모든 색의 연결 그룹을 통째로 터뜨린다(색 구분 없이 상호작용).
+      final remove = <String>{};
+      for (final nb in _neighbors(row, col)) {
+        final v = _grid[nb[0]][nb[1]];
+        if (v >= 0) {
+          for (final p in _flood(nb[0], nb[1], v)) {
+            remove.add('${p[0]},${p[1]}');
           }
         }
       }
-      _score += removed * 15;
-    } else if (shot == _rainbow) {
-      // 이웃 색 중 가장 큰 그룹을 터뜨림
-      _grid[row][col] = -2; // 임시 표시(레인보우)
-      final colors = <int>{};
-      for (final nb in _neighbors(row, col)) {
-        final v = _grid[nb[0]][nb[1]];
-        if (v >= 0) colors.add(v);
+      for (final key in remove) {
+        final parts = key.split(',');
+        _grid[int.parse(parts[0])][int.parse(parts[1])] = -1;
       }
-      List<List<int>> best = [];
-      for (final col0 in colors) {
-        final g = _flood(row, col, col0);
-        if (g.length > best.length) best = g;
-      }
-      _grid[row][col] = -1; // 레인보우는 사라짐
-      if (best.isNotEmpty) {
-        for (final p in best) {
-          _grid[p[0]][p[1]] = -1;
-        }
-        _score += (best.length + 1) * 10;
-      }
+      _grid[row][col] = -1; // 레인보우 자체는 사라짐
+      _score += (remove.length + 1) * 10;
+      if (remove.isNotEmpty) _dropFloating();
     } else {
       _grid[row][col] = shot;
       if (row >= _maxRows - 1) {
@@ -301,7 +286,7 @@ class _BubbleGameState extends State<BubbleGame> {
         child: _gloss(),
       );
     }
-    final Color base = v == _bomb ? const Color(0xFF546E7A) : _bubbleColors[v];
+    final Color base = _bubbleColors[v];
     return DecoratedBox(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -317,9 +302,7 @@ class _BubbleGameState extends State<BubbleGame> {
         ),
         boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 1))],
       ),
-      child: v == _bomb
-          ? Center(child: Text('💣', style: TextStyle(fontSize: size * 0.55)))
-          : _gloss(),
+      child: _gloss(),
     );
   }
 
@@ -409,13 +392,11 @@ class _BubbleGameState extends State<BubbleGame> {
                   ),
                 if (!_running)
                   Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.92), borderRadius: BorderRadius.circular(16)),
+                    child: PopPanel(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(_score > 0 ? '게임 오버! 점수 $_score 🫧' : '화면을 탭한 방향으로 버블 발사!\n같은 색 3개+ 매치 · 💣폭탄 · 🌈레인보우', textAlign: TextAlign.center, style: const TextStyle(fontSize: 17)),
+                          Text(_score > 0 ? '게임 오버! 점수 $_score 🫧' : '화면을 탭한 방향으로 버블 발사!\n같은 색 3개+ 매치 · 🌈레인보우는 닿는 색 다 터뜨림!', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
                           const SizedBox(height: 12),
                           FilledButton(onPressed: _start, child: Text(_score > 0 ? '다시' : '시작')),
                         ],

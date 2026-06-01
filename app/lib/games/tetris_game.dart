@@ -211,6 +211,7 @@ class _TetrisGameState extends State<TetrisGame> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF12161D),
       appBar: AppBar(title: Text('테트리스 🧱   점수 $_score')),
       body: Column(
         children: [
@@ -286,10 +287,25 @@ class _TetrisGameState extends State<TetrisGame> {
       itemCount: _rows * _cols,
       itemBuilder: (_, i) {
         final v = view[i ~/ _cols][i % _cols];
+        if (v == -1) {
+          return Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF161616),
+              border: Border.all(color: const Color(0xFF2E2E2E), width: 0.7), // 격자 실선
+            ),
+          );
+        }
+        final base = _colors[v];
         return Container(
+          margin: const EdgeInsets.all(0.6),
           decoration: BoxDecoration(
-            color: v == -1 ? const Color(0xFF1A1A1A) : _colors[v],
-            border: Border.all(color: const Color(0xFF3A3A3A), width: 0.7), // 격자 실선
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color.lerp(base, Colors.white, 0.35)!, base, Color.lerp(base, Colors.black, 0.18)!],
+              stops: const [0.0, 0.5, 1.0],
+            ),
+            borderRadius: BorderRadius.circular(3),
           ),
         );
       },

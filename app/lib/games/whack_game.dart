@@ -108,6 +108,7 @@ class _WhackGameState extends State<WhackGame> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF1E9DD),
       appBar: AppBar(title: Text('두더지 잡기 🔨  ⏱️$_left  ⭐$_score')),
       body: !_running
           ? Center(
@@ -135,10 +136,17 @@ class _WhackGameState extends State<WhackGame> {
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 120),
                       decoration: BoxDecoration(
-                        color: bg,
-                        borderRadius: BorderRadius.circular(60),
+                        gradient: RadialGradient(
+                          center: const Alignment(0, -0.2),
+                          radius: 0.95,
+                          colors: [Color.lerp(bg, Colors.white, 0.22)!, bg, Color.lerp(bg, Colors.black, 0.28)!],
+                          stops: const [0.0, 0.55, 1.0],
+                        ),
+                        shape: BoxShape.circle,
                         border: Border.all(color: hit ? (fx.contains('-') ? Colors.red : Colors.green) : (golden ? Colors.orange : Colors.brown.shade400), width: golden ? 4 : 3),
-                        boxShadow: golden && !hit ? [const BoxShadow(color: Color(0xAAFFC107), blurRadius: 14, spreadRadius: 1)] : null,
+                        boxShadow: golden && !hit
+                            ? [const BoxShadow(color: Color(0xAAFFC107), blurRadius: 14, spreadRadius: 1)]
+                            : [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 4, offset: const Offset(0, 2))],
                       ),
                       child: Center(
                         child: Text(

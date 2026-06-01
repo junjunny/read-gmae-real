@@ -112,9 +112,18 @@ class _ReactionGameState extends State<ReactionGame> {
       appBar: AppBar(title: Text('반응속도 🟢  $_round/$_rounds  🔥$_combo')),
       body: GestureDetector(
         onTap: _tap,
-        child: Container(
-          color: bg,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
           width: double.infinity,
+          height: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color.lerp(bg, Colors.white, 0.18)!, bg, Color.lerp(bg, Colors.black, 0.12)!],
+            ),
+          ),
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,

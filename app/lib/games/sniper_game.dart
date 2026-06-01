@@ -131,7 +131,13 @@ class _SniperGameState extends State<SniperGame> {
               final w = box.maxWidth, h = box.maxHeight;
               final unit = min(w, h);
               return Container(
-                color: const Color(0xFF0D1B2A),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFF1B2D45), Color(0xFF09111E)],
+                  ),
+                ),
                 child: Stack(
                   children: [
                     for (final t in _targets)

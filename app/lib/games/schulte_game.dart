@@ -57,6 +57,7 @@ class _SchulteGameState extends State<SchulteGame> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFEFF4FB),
       appBar: AppBar(title: Text('순서 터치 🔢  ${(_elapsed / 1000).toStringAsFixed(1)}s')),
       body: !_running
           ? Center(
@@ -81,12 +82,21 @@ class _SchulteGameState extends State<SchulteGame> {
                       itemBuilder: (_, i) {
                         final n = _nums[i];
                         final done = n < _next;
+                        final base = done ? Colors.green.shade300 : Theme.of(context).colorScheme.primaryContainer;
                         return GestureDetector(
                           onTap: () => _tap(n),
-                          child: Container(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            curve: Curves.easeOut,
                             decoration: BoxDecoration(
-                              color: done ? Colors.green.shade200 : Theme.of(context).colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(10),
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [Color.lerp(base, Colors.white, 0.3)!, base, Color.lerp(base, Colors.black, 0.1)!],
+                                stops: const [0.0, 0.5, 1.0],
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 3, offset: const Offset(0, 2))],
                             ),
                             child: Center(child: Text('$n', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
                           ),

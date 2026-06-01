@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_fx.dart';
+
 /// 벽돌깨기 🧱: 패들을 좌우로 움직여 공을 튕겨 벽돌을 부순다.
 /// 떨어지는 아이템: 💥 x2 데미지 / ➕ 공 분열(2개) / 🧲 자석 패들(공이 붙었다 탭하면 발사).
 class BreakoutGame extends StatefulWidget {
@@ -314,7 +316,13 @@ class _BreakoutGameState extends State<BreakoutGame> {
           onTapDown: (_) => _tap(),
           onPanUpdate: (d) => setState(() => _movePaddle(d.localPosition.dx / w)),
           child: Container(
-            color: const Color(0xFF0D1B2A),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF1B2D45), Color(0xFF09111E)],
+              ),
+            ),
             child: Stack(
               children: [
                 // 벽돌
@@ -326,9 +334,21 @@ class _BreakoutGameState extends State<BreakoutGame> {
                         top: (_brickTop + r * _brickH) * h + 1.5,
                         width: w / _cols - 3,
                         height: _brickH * h - 3,
-                        child: Container(
-                          decoration: BoxDecoration(color: _brickColor(r, _hp[r][c]), borderRadius: BorderRadius.circular(4)),
-                        ),
+                        child: Builder(builder: (_) {
+                          final bc = _brickColor(r, _hp[r][c]);
+                          return Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [Color.lerp(bc, Colors.white, 0.35)!, bc, Color.lerp(bc, Colors.black, 0.16)!],
+                                stops: const [0.0, 0.5, 1.0],
+                              ),
+                              borderRadius: BorderRadius.circular(5),
+                              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 2, offset: const Offset(0, 1))],
+                            ),
+                          );
+                        }),
                       ),
                 // 아이템
                 for (final d in _drops)
@@ -346,7 +366,16 @@ class _BreakoutGameState extends State<BreakoutGame> {
                     top: b.y * h - _ballR * w,
                     width: _ballR * 2 * w,
                     height: _ballR * 2 * w,
-                    child: const DecoratedBox(decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white)),
+                    child: const DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          center: Alignment(-0.3, -0.3),
+                          colors: [Colors.white, Color(0xFFB0BEC5)],
+                        ),
+                        boxShadow: [BoxShadow(color: Color(0x66FFFFFF), blurRadius: 6, spreadRadius: 1)],
+                      ),
+                    ),
                   ),
                 // 패들
                 Positioned(
@@ -368,9 +397,7 @@ class _BreakoutGameState extends State<BreakoutGame> {
                   ),
                 if (!_running)
                   Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.92), borderRadius: BorderRadius.circular(16)),
+                    child: PopPanel(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [

@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_fx.dart';
+
 /// 나이프 던지기 🔪 (Knife Hit): 회전하는 통나무에 칼을 꽂는다.
 /// 탭하면 칼이 날아가 통나무에 박힘 → 이미 박힌 칼과 부딪히면 게임 오버!
 /// 🍎 사과를 맞히면 보너스. 스테이지를 깰수록 더 빨리·더 많은 칼이 박혀 있어 어려워진다.
@@ -147,7 +149,13 @@ class _KnifeGameState extends State<KnifeGame> {
         behavior: HitTestBehavior.opaque,
         onTap: _tap,
         child: Container(
-          color: const Color(0xFF14202E),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF223349), Color(0xFF0E1825)],
+            ),
+          ),
           child: Stack(
             children: [
               Positioned.fill(
@@ -169,9 +177,7 @@ class _KnifeGameState extends State<KnifeGame> {
                 ),
               if (!_running)
                 Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.92), borderRadius: BorderRadius.circular(16)),
+                  child: PopPanel(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
