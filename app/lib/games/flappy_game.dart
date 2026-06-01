@@ -204,7 +204,10 @@ class _FlappyGameState extends State<FlappyGame> {
                     opacity: _invincible > 0 && (_frame ~/ 5).isEven ? 0.4 : 1,
                     child: Transform.rotate(
                       angle: (_vy * 16).clamp(-0.5, 1.0), // 오를 땐 위로, 떨어질 땐 아래로 부드럽게 기울기
-                      child: const FittedBox(child: Text('🐦', style: TextStyle(fontSize: 30))),
+                      child: Transform.scale(
+                        scaleX: -1, // 🐦는 기본 왼쪽을 보므로 뒤집어 진행 방향(오른쪽)을 보게
+                        child: const FittedBox(child: Text('🐦', style: TextStyle(fontSize: 30))),
+                      ),
                     ),
                   ),
                 ),

@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-/// 카드 짝맞추기: 8쌍(16장)을 뒤집어 짝 맞추기. 빠를수록 + 콤보 이어갈수록 고득점.
+/// 카드 짝맞추기: 12쌍(24장)을 뒤집어 짝 맞추기. 빠를수록 + 콤보 이어갈수록 고득점.
 /// 🃏 조커 카드 짝은 보너스(+200) / 🔥 연속 성공 콤보(콤보×10 추가점).
 class MemoryGame extends StatefulWidget {
   final void Function(int score) onFinish;
@@ -12,8 +12,8 @@ class MemoryGame extends StatefulWidget {
   State<MemoryGame> createState() => _MemoryGameState();
 }
 
-// 7종 + 조커(🃏) = 8쌍(16장)
-const _emojis = ['🍎', '🐶', '⭐', '🌸', '🍕', '🎈', '🐱'];
+// 11종 + 조커(🃏) = 12쌍(24장)
+const _emojis = ['🍎', '🐶', '⭐', '🌸', '🍕', '🎈', '🐱', '🚀', '🍉', '🐢', '🌈'];
 const _joker = '🃏';
 
 class _MemoryGameState extends State<MemoryGame> {
@@ -85,7 +85,7 @@ class _MemoryGameState extends State<MemoryGame> {
     _ticker?.cancel();
     final sec = DateTime.now().difference(_start!).inSeconds;
     // 빠르고 적게 틀릴수록 ↑ 시간/시도 보너스
-    final timeBonus = max(0, 1200 - sec * 8 - (_tries - 8) * 18);
+    final timeBonus = max(0, 1600 - sec * 7 - (_tries - 12) * 16);
     _score += timeBonus;
     _started = false;
     setState(() {});
@@ -105,7 +105,7 @@ class _MemoryGameState extends State<MemoryGame> {
       body: !_started
           ? Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(_score > 0 ? '완성! 점수 $_score 🎉\n최고 콤보 $_bestCombo' : '같은 카드 8쌍을 빨리 맞춰요!\n🃏조커 짝은 보너스 · 🔥콤보 이어가기', textAlign: TextAlign.center, style: const TextStyle(fontSize: 18)),
+                Text(_score > 0 ? '완성! 점수 $_score 🎉\n최고 콤보 $_bestCombo' : '같은 카드 12쌍을 빨리 맞춰요!\n🃏조커 짝은 보너스 · 🔥콤보 이어가기', textAlign: TextAlign.center, style: const TextStyle(fontSize: 18)),
                 const SizedBox(height: 12),
                 FilledButton(onPressed: _begin, child: Text(_score > 0 ? '다시' : '시작')),
               ]),

@@ -315,6 +315,7 @@ class _BlastGameState extends State<BlastGame> {
     final p = _tray[i];
     final dragging = _dragSlot == i;
     return GestureDetector(
+      key: ValueKey('blastTray$i'),
       onPanStart: p == null ? null : (d) => _onDragStart(i, d.globalPosition),
       onPanUpdate: p == null ? null : (d) => _onDragUpdate(d.globalPosition),
       onPanEnd: p == null ? null : (_) => _onDragEnd(),

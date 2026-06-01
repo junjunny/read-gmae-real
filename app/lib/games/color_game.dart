@@ -4,7 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 /// 색깔 맞추기: 22초 동안 빠르게! 초반 3색 → 후반 7색으로 점점 어려워짐.
-/// 📢 페이크 문제(글자 '뜻'의 색을 고르기) / 🔥 5콤보 x2점 / ✨ 10콤보 반짝+보너스(+50).
+/// 글자의 "잉크 색"을 고르기 / 🔥 5콤보 x2점 / ✨ 10콤보 반짝+보너스(+50).
 class ColorGame extends StatefulWidget {
   final void Function(int score) onFinish;
   const ColorGame({super.key, required this.onFinish});
@@ -25,13 +25,12 @@ class _ColorGameState extends State<ColorGame> {
   bool _running = false, _flash = false;
   Timer? _timer;
   int _wordIdx = 0; // 표시되는 글자(텍스트)
-  int _colorIdx = 0; // 그 글자의 실제 잉크 색
-  bool _fake = false; // true면 "글자 뜻"의 색을 골라야 함
+  int _colorIdx = 0; // 그 글자의 실제 잉크 색 ← 정답
   List<int> _choices = [];
 
   // 초반 3색 → 후반 7색
   int get _activeCount => min(_colors.length, 3 + (_dur - _left) ~/ 4);
-  int get _answer => _fake ? _wordIdx : _colorIdx;
+  int get _answer => _colorIdx;
 
   void _start() {
     _score = 0;
@@ -56,7 +55,6 @@ class _ColorGameState extends State<ColorGame> {
     final active = _activeCount;
     _wordIdx = _rng.nextInt(active);
     _colorIdx = _rng.nextInt(active);
-    _fake = _rng.nextInt(5) == 0; // 20% 페이크 문제
     _choices = List.generate(active, (i) => i)..shuffle(_rng);
   }
 
@@ -96,7 +94,7 @@ class _ColorGameState extends State<ColorGame> {
       body: !_running
           ? Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(_score > 0 || _left == 0 ? '점수 $_score 🎉\n최고 콤보 $_bestCombo' : '글자의 "색깔"과 같은 버튼 누르기!\n📢페이크 땐 글자 "뜻"의 색 · 🔥콤보 보너스', textAlign: TextAlign.center, style: const TextStyle(fontSize: 18)),
+                Text(_score > 0 || _left == 0 ? '점수 $_score 🎉\n최고 콤보 $_bestCombo' : '글자의 "잉크 색깔"과 같은 버튼 누르기!\n(글자 내용 말고 색!) · 🔥콤보 보너스', textAlign: TextAlign.center, style: const TextStyle(fontSize: 18)),
                 const SizedBox(height: 12),
                 FilledButton(onPressed: _start, child: const Text('시작')),
               ]),
@@ -111,17 +109,7 @@ class _ColorGameState extends State<ColorGame> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _fake ? const Color(0xFFFFE0B2) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      _fake ? '📢 페이크! 글자 "뜻"의 색!' : '↓ 이 글자의 "잉크 색"은?',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _fake ? Colors.deepOrange : Colors.grey),
-                    ),
-                  ),
+                  const Text('↓ 이 글자의 "잉크 색"은?', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.grey)),
                   const SizedBox(height: 16),
                   Text(_names[_wordIdx], style: TextStyle(fontSize: 64, fontWeight: FontWeight.bold, color: _colors[_colorIdx])),
                   if (_combo >= 5) Padding(padding: const EdgeInsets.only(top: 6), child: Text('🔥 $_combo 콤보 · x2점!', style: const TextStyle(color: Colors.deepOrange, fontWeight: FontWeight.bold))),

@@ -12,13 +12,13 @@ class BreakoutGame extends StatefulWidget {
   State<BreakoutGame> createState() => _BreakoutGameState();
 }
 
-const int _cols = 7;
-const int _brickRows = 5;
-const double _ballR = 0.018;
+const int _cols = 9;
+const int _brickRows = 10;
+const double _ballR = 0.017;
 const double _paddleW = 0.22;
 const double _paddleY = 0.93; // 패들 중심 y
-const double _brickTop = 0.10;
-const double _brickH = 0.045;
+const double _brickTop = 0.07;
+const double _brickH = 0.038;
 
 class _Ball {
   double x, y, vx, vy;
@@ -49,7 +49,7 @@ class _BreakoutGameState extends State<BreakoutGame> {
   int get _damage => _doubleDmg > 0 ? 2 : 1;
 
   void _start() {
-    _hp = List.generate(_brickRows, (r) => List.generate(_cols, (c) => _brickRows - r > 3 ? 2 : 1));
+    _hp = List.generate(_brickRows, (r) => List.generate(_cols, (c) => r < 3 ? 2 : 1));
     _balls.clear();
     _drops.clear();
     _paddleX = 0.5;
@@ -155,7 +155,7 @@ class _BreakoutGameState extends State<BreakoutGame> {
     // 전부 깼으면 새 판
     if (_hp.every((row) => row.every((v) => v == 0))) {
       _score += 100; // 클리어 보너스
-      _hp = List.generate(_brickRows, (r) => List.generate(_cols, (c) => _brickRows - r > 3 ? 2 : 1));
+      _hp = List.generate(_brickRows, (r) => List.generate(_cols, (c) => r < 3 ? 2 : 1));
     }
 
     setState(() {});
