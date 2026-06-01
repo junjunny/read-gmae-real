@@ -3,7 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-/// 반응속도: 초록색으로 바뀌는 순간 탭! 빠를수록 고득점. (5라운드 합산)
+/// 반응속도: 빨강 화면이 초록으로 바뀌는 순간 탭! 빠를수록 고득점. (5라운드 합산)
+/// ⚠️ 빨간 화면에서 탭하면 페널티(-100, 콤보 리셋) / 🔥 연속 성공 콤보 보너스(콤보×20).
 class ReactionGame extends StatefulWidget {
   final void Function(int score) onFinish;
   const ReactionGame({super.key, required this.onFinish});
@@ -18,6 +19,8 @@ class _ReactionGameState extends State<ReactionGame> {
   int _round = 0;
   int _total = 0;
   int _lastMs = 0;
+  int _combo = 0;
+  int _bestCombo = 0;
   DateTime? _goAt;
   Timer? _timer;
   final _rng = Random();
@@ -28,6 +31,8 @@ class _ReactionGameState extends State<ReactionGame> {
       _round = 0;
       _total = 0;
       _lastMs = 0;
+      _combo = 0;
+      _bestCombo = 0;
     });
     _next();
   }
@@ -44,13 +49,20 @@ class _ReactionGameState extends State<ReactionGame> {
   void _tap() {
     switch (_phase) {
       case _Phase.waiting:
+        // 빨간 화면에서 탭 → 페널티 + 콤보 리셋, 같은 라운드 재시작
         _timer?.cancel();
-        setState(() => _phase = _Phase.tooSoon);
+        setState(() {
+          _total = max(0, _total - 100);
+          _combo = 0;
+          _phase = _Phase.tooSoon;
+        });
         break;
       case _Phase.go:
         final ms = DateTime.now().difference(_goAt!).inMilliseconds;
         _lastMs = ms;
-        _total += max(0, 600 - ms); // 빠를수록 ↑
+        _combo++;
+        if (_combo > _bestCombo) _bestCombo = _combo;
+        _total += max(0, 600 - ms) + _combo * 20; // 빠를수록 ↑ + 연속 콤보 보너스
         _round++;
         if (_round >= _rounds) {
           setState(() => _phase = _Phase.idle);
@@ -81,10 +93,10 @@ class _ReactionGameState extends State<ReactionGame> {
     switch (_phase) {
       case _Phase.idle:
         bg = Colors.blueGrey.shade100;
-        text = _total > 0 ? '끝! 점수 $_total 🎉\n탭해서 다시' : '초록색이 되면\n최대한 빨리 탭!\n\n탭해서 시작';
+        text = _total > 0 ? '끝! 점수 $_total 🎉\n최고 콤보 $_bestCombo\n탭해서 다시' : '초록색이 되면\n최대한 빨리 탭!\n(빨강에서 누르면 -100)\n\n탭해서 시작';
         break;
       case _Phase.waiting:
-        bg = Colors.red.shade300;
+        bg = Colors.red.shade400;
         text = '기다려...';
         break;
       case _Phase.go:
@@ -92,12 +104,12 @@ class _ReactionGameState extends State<ReactionGame> {
         text = '지금 탭!';
         break;
       case _Phase.tooSoon:
-        bg = Colors.orange.shade300;
-        text = '너무 빨라요!\n탭해서 계속';
+        bg = Colors.orange.shade400;
+        text = '너무 빨라요! -100\n탭해서 계속';
         break;
     }
     return Scaffold(
-      appBar: AppBar(title: Text('반응속도 ⚡  $_round/$_rounds')),
+      appBar: AppBar(title: Text('반응속도 🟢  $_round/$_rounds  🔥$_combo')),
       body: GestureDetector(
         onTap: _tap,
         child: Container(
@@ -109,6 +121,7 @@ class _ReactionGameState extends State<ReactionGame> {
               children: [
                 Text(text, textAlign: TextAlign.center, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 if (_lastMs > 0 && _phase == _Phase.waiting) Padding(padding: const EdgeInsets.only(top: 12), child: Text('직전 $_lastMs ms')),
+                if (_combo >= 2 && _phase == _Phase.go) Padding(padding: const EdgeInsets.only(top: 12), child: Text('🔥 $_combo 콤보!', style: const TextStyle(fontSize: 18, color: Colors.white))),
                 Padding(padding: const EdgeInsets.only(top: 12), child: Text('누적 $_total', style: const TextStyle(fontSize: 16))),
               ],
             ),

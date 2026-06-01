@@ -76,6 +76,8 @@ const List<Color> _colors = [
 class _TetrisGameState extends State<TetrisGame> {
   List<List<int>> _grid = List.generate(_rows, (_) => List.filled(_cols, -1)); // -1 빈칸, 0~6 색
   int _piece = 0, _rot = 0, _px = 3, _py = 0;
+  int _hold = -1; // 홀드 중인 조각(-1=없음)
+  bool _holdUsed = false; // 조각당 1회만 홀드 가능
   int _score = 0;
   bool _running = false;
   Timer? _timer;
@@ -86,6 +88,7 @@ class _TetrisGameState extends State<TetrisGame> {
   void _reset() {
     _grid = List.generate(_rows, (_) => List.filled(_cols, -1));
     _score = 0;
+    _hold = -1;
     _spawn();
     _running = true;
     _restartTimer();
@@ -103,12 +106,37 @@ class _TetrisGameState extends State<TetrisGame> {
     _rot = 0;
     _px = 3;
     _py = 0;
+    _holdUsed = false; // 새 조각마다 홀드 재사용 가능
     if (!_valid(_piece, _rot, _px, _py)) {
       // 게임 오버
       _running = false;
       _timer?.cancel();
       widget.onFinish(_score);
     }
+  }
+
+  void _holdPiece() {
+    if (!_running || _holdUsed) return;
+    setState(() {
+      if (_hold == -1) {
+        _hold = _piece;
+        _spawn();
+      } else {
+        final t = _hold;
+        _hold = _piece;
+        _piece = t;
+        _rot = 0;
+        _px = 3;
+        _py = 0;
+        if (!_valid(_piece, _rot, _px, _py)) {
+          _running = false;
+          _timer?.cancel();
+          widget.onFinish(_score);
+          return;
+        }
+      }
+      _holdUsed = true;
+    });
   }
 
   List<List<int>> _cells(int piece, int rot) => _shapes[piece][rot];
@@ -186,6 +214,22 @@ class _TetrisGameState extends State<TetrisGame> {
       appBar: AppBar(title: Text('테트리스 🧱   점수 $_score')),
       body: Column(
         children: [
+          if (_running)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Row(
+                children: [
+                  const Text('홀드 ', style: TextStyle(fontWeight: FontWeight.bold)),
+                  _holdPreview(),
+                  const Spacer(),
+                  FilledButton.tonalIcon(
+                    onPressed: _holdUsed ? null : _holdPiece,
+                    icon: const Icon(Icons.swap_vert, size: 18),
+                    label: const Text('홀드'),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: Center(
               child: AspectRatio(
@@ -249,6 +293,39 @@ class _TetrisGameState extends State<TetrisGame> {
           ),
         );
       },
+    );
+  }
+
+  Widget _holdPreview() {
+    if (_hold == -1) {
+      return Container(
+        width: 56,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(4)),
+        child: const Text('—', style: TextStyle(color: Colors.white54)),
+      );
+    }
+    final cells = _shapes[_hold][0];
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(4)),
+      child: SizedBox(
+        width: 56,
+        height: 28,
+        child: Stack(
+          children: [
+            for (final c in cells)
+              Positioned(
+                left: c[0] * 13.0,
+                top: c[1] * 13.0,
+                width: 12,
+                height: 12,
+                child: Container(color: _colors[_hold]),
+              ),
+          ],
+        ),
+      ),
     );
   }
 

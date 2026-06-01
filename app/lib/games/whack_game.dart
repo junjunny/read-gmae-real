@@ -3,7 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-/// 두더지 잡기: 9칸 중 튀어나오는 두더지(🐹)를 탭! 폭탄(💣)은 누르면 감점. 20초.
+/// 두더지 잡기: 9칸 중 튀어나오는 두더지(🐹)를 탭! 폭탄(💣)은 누르면 -3점. 20초.
+/// 👑 황금 두더지는 x3점(+30)!
 class WhackGame extends StatefulWidget {
   final void Function(int score) onFinish;
   const WhackGame({super.key, required this.onFinish});
@@ -16,7 +17,7 @@ class _WhackGameState extends State<WhackGame> {
   int _score = 0, _left = 20;
   bool _running = false;
   Timer? _spawnTimer, _clock;
-  // 동시에 여러 칸 등장 가능: 칸별 상태(0=없음,1=두더지,2=폭탄)
+  // 동시에 여러 칸 등장 가능: 칸별 상태(0=없음,1=두더지,2=폭탄,3=황금두더지)
   List<int> _holes = List.filled(9, 0);
 
   void _start() {
@@ -52,8 +53,9 @@ class _WhackGameState extends State<WhackGame> {
       final empty = [for (var i = 0; i < 9; i++) if (_holes[i] == 0) i];
       if (empty.isEmpty) break;
       final idx = empty[_rng.nextInt(empty.length)];
-      final isBomb = _rng.nextInt(3) == 0; // 33% 폭탄
-      _holes[idx] = isBomb ? 2 : 1;
+      final roll = _rng.nextInt(100);
+      // 30% 폭탄, 12% 황금 두더지, 나머지 일반 두더지
+      _holes[idx] = roll < 30 ? 2 : (roll < 42 ? 3 : 1);
       // 일정 시간 뒤 자동으로 사라짐(놓침)
       Timer(Duration(milliseconds: _showMs), () {
         if (mounted && _holes[idx] != 0) setState(() => _holes[idx] = 0);
@@ -69,11 +71,19 @@ class _WhackGameState extends State<WhackGame> {
 
   void _tap(int i) {
     if (!_running || _holes[i] == 0) return;
-    final wasBomb = _holes[i] == 2;
+    final state = _holes[i];
     setState(() {
-      _score = wasBomb ? max(0, _score - 20) : _score + 10;
+      if (state == 2) {
+        _score = max(0, _score - 3);
+        _fx[i] = '💥 -3';
+      } else if (state == 3) {
+        _score += 30;
+        _fx[i] = '👑 +30';
+      } else {
+        _score += 10;
+        _fx[i] = '+10';
+      }
       _holes[i] = 0;
-      _fx[i] = wasBomb ? '💥 -20' : '+10';
     });
     Timer(const Duration(milliseconds: 350), () {
       if (mounted) setState(() => _fx.remove(i));
@@ -116,19 +126,24 @@ class _WhackGameState extends State<WhackGame> {
                   final state = _holes[i];
                   final fx = _fx[i];
                   final hit = fx != null;
+                  final golden = state == 3;
+                  final bg = hit
+                      ? (fx.contains('-') ? Colors.red.shade200 : Colors.green.shade200)
+                      : (golden ? Colors.amber.shade300 : Colors.brown.shade200);
                   return GestureDetector(
                     onTap: () => _tap(i),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 120),
                       decoration: BoxDecoration(
-                        color: hit ? (fx.contains('-') ? Colors.red.shade200 : Colors.green.shade200) : Colors.brown.shade200,
+                        color: bg,
                         borderRadius: BorderRadius.circular(60),
-                        border: Border.all(color: hit ? (fx.contains('-') ? Colors.red : Colors.green) : Colors.brown.shade400, width: 3),
+                        border: Border.all(color: hit ? (fx.contains('-') ? Colors.red : Colors.green) : (golden ? Colors.orange : Colors.brown.shade400), width: golden ? 4 : 3),
+                        boxShadow: golden && !hit ? [const BoxShadow(color: Color(0xAAFFC107), blurRadius: 14, spreadRadius: 1)] : null,
                       ),
                       child: Center(
                         child: Text(
-                          fx ?? (state == 2 ? '💣' : (state == 1 ? '🐹' : '')),
-                          style: TextStyle(fontSize: hit ? 22 : 44, fontWeight: FontWeight.bold, color: hit ? (fx.contains('-') ? Colors.red.shade900 : Colors.green.shade900) : null),
+                          fx ?? (state == 2 ? '💣' : (state == 3 ? '👑🐹' : (state == 1 ? '🐹' : ''))),
+                          style: TextStyle(fontSize: hit ? 20 : (golden ? 30 : 44), fontWeight: FontWeight.bold, color: hit ? (fx.contains('-') ? Colors.red.shade900 : Colors.green.shade900) : null),
                         ),
                       ),
                     ),

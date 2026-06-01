@@ -4,7 +4,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 /// 저격수 🎯: 움직이는 타겟을 빠르게 탭! 25초 동안 최대한 많이 맞히기.
-/// 진행할수록 더 자주, 더 빠르게 나타남. 놓친 타겟은 화면 밖으로 사라짐.
+/// 진행할수록 더 자주·빠르게, 그리고 타겟 크기도 점점 작아진다.
+/// 👑 황금 타겟은 x3점!
 class SniperGame extends StatefulWidget {
   final void Function(int score) onFinish;
   const SniperGame({super.key, required this.onFinish});
@@ -16,8 +17,9 @@ class _Target {
   double x, y; // 0~1 (정규화)
   double vx, vy; // 초당 이동(정규화)
   double r; // 반지름(짧은 변 대비 비율)
+  final bool golden; // 황금 타겟(x3점)
   final int id;
-  _Target(this.id, this.x, this.y, this.vx, this.vy, this.r);
+  _Target(this.id, this.x, this.y, this.vx, this.vy, this.r, this.golden);
 }
 
 class _SniperGameState extends State<SniperGame> {
@@ -66,8 +68,11 @@ class _SniperGameState extends State<SniperGame> {
       vx = fromLeft ? speed : -speed;
       vy = (_rng.nextDouble() - 0.5) * 0.15;
     }
-    final r = 0.07 + _rng.nextDouble() * 0.03; // 살짝 크기 차이
-    _targets.add(_Target(_nextId++, x, y, vx, vy, r));
+    // 진행할수록 점점 작아짐(0.08 → 최소 0.035)
+    final baseR = max(0.035, 0.08 - _elapsed * 0.0018);
+    final golden = _rng.nextInt(100) < 15; // 15% 황금 타겟
+    final r = baseR + _rng.nextDouble() * 0.02;
+    _targets.add(_Target(_nextId++, x, y, vx, vy, r, golden));
 
     _spawnTimer?.cancel();
     _spawnTimer = Timer(Duration(milliseconds: _spawnGapMs), _spawn);
@@ -87,7 +92,7 @@ class _SniperGameState extends State<SniperGame> {
   void _hit(_Target t) {
     if (!_running) return;
     setState(() {
-      _score++;
+      _score += t.golden ? 3 : 1;
       _targets.remove(t);
     });
   }
@@ -137,7 +142,7 @@ class _SniperGameState extends State<SniperGame> {
                         height: t.r * 2 * unit,
                         child: GestureDetector(
                           onTapDown: (_) => _hit(t),
-                          child: const _TargetDot(),
+                          child: _TargetDot(golden: t.golden),
                         ),
                       ),
                   ],
@@ -149,21 +154,27 @@ class _SniperGameState extends State<SniperGame> {
 }
 
 class _TargetDot extends StatelessWidget {
-  const _TargetDot();
+  final bool golden;
+  const _TargetDot({this.golden = false});
   @override
   Widget build(BuildContext context) {
+    final ring = golden ? const Color(0xFFFFC107) : const Color(0xFFE53935);
     return Container(
-      decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white,
+        boxShadow: golden ? [const BoxShadow(color: Color(0xAAFFC107), blurRadius: 14, spreadRadius: 2)] : null,
+      ),
       child: Center(
         child: Container(
           margin: const EdgeInsets.all(4),
-          decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFE53935)),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: ring),
           child: Center(
             child: Container(
               margin: const EdgeInsets.all(6),
               decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
-              child: const Center(
-                child: FittedBox(child: Padding(padding: EdgeInsets.all(2), child: Text('🎯', style: TextStyle(fontSize: 18)))),
+              child: Center(
+                child: FittedBox(child: Padding(padding: const EdgeInsets.all(2), child: Text(golden ? '👑' : '🎯', style: const TextStyle(fontSize: 18)))),
               ),
             ),
           ),
