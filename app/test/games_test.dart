@@ -11,13 +11,13 @@ import 'package:grim_pingpong/games/bubble_game.dart';
 import 'package:grim_pingpong/games/color_game.dart';
 import 'package:grim_pingpong/games/flappy_game.dart';
 import 'package:grim_pingpong/games/game_2048.dart';
+import 'package:grim_pingpong/games/knife_game.dart';
 import 'package:grim_pingpong/games/memory_game.dart';
 import 'package:grim_pingpong/games/reaction_game.dart';
 import 'package:grim_pingpong/games/schulte_game.dart';
 import 'package:grim_pingpong/games/snake_game.dart';
 import 'package:grim_pingpong/games/sniper_game.dart';
 import 'package:grim_pingpong/games/stack_game.dart';
-import 'package:grim_pingpong/games/tap_game.dart';
 import 'package:grim_pingpong/games/tetris_game.dart';
 import 'package:grim_pingpong/games/whack_game.dart';
 
@@ -47,25 +47,16 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   }
 
-  testWidgets('① 빠른 탭: 시작→타겟 탭→15초 후 종료', (tester) async {
+  testWidgets('① 나이프 던지기: 시작→던지기 반복', (tester) async {
     var finished = false;
-    int? sc;
-    await mount(tester, TapGame(onFinish: (s) {
-      finished = true;
-      sc = s;
-    }));
+    await mount(tester, KnifeGame(onFinish: (s) => finished = true));
     await tapStart(tester);
-    // 타겟(점/별) 몇 번 탭
-    for (var i = 0; i < 6; i++) {
-      final t = find.byIcon(Icons.touch_app).evaluate().isNotEmpty
-          ? find.byIcon(Icons.touch_app)
-          : find.byIcon(Icons.star);
-      if (t.evaluate().isNotEmpty) await tester.tap(t.first, warnIfMissed: false);
-      await tester.pump(const Duration(milliseconds: 300));
+    // 칼 여러 번 던지기(통나무 회전 중, 충돌하면 종료될 수 있음)
+    for (var i = 0; i < 25 && !finished; i++) {
+      await tester.tap(find.byType(GestureDetector).first, warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 250));
     }
-    await tester.pump(const Duration(seconds: 16));
-    expect(finished, isTrue);
-    expect(sc, isNotNull);
+    expect(find.textContaining('나이프'), findsWidgets);
     await teardown(tester);
   });
 
@@ -217,8 +208,7 @@ void main() {
   });
 
   testWidgets('⑬ 벽돌깨기: 진입 로드 OK + 시작/발사 동작', (tester) async {
-    var finished = false;
-    await mount(tester, BreakoutGame(onFinish: (s) => finished = true));
+    await mount(tester, BreakoutGame(onFinish: (_) {}));
     // 로드 버그 회귀 방지: 진입 즉시 시작 화면이 떠야 함
     expect(find.text('시작'), findsOneWidget);
     await tapStart(tester);
@@ -241,8 +231,7 @@ void main() {
   });
 
   testWidgets('⑮ 블록 블라스트: 조각을 보드로 드래그 배치 → 점수 증가', (tester) async {
-    var lastScore = 0;
-    await mount(tester, BlastGame(onFinish: (s) => lastScore = s));
+    await mount(tester, BlastGame(onFinish: (_) {}));
     await tapStart(tester);
     final tray = find.byKey(const ValueKey('blastTray0'));
     final board = find.byType(GridView);

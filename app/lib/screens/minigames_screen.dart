@@ -7,13 +7,13 @@ import '../games/bubble_game.dart';
 import '../games/color_game.dart';
 import '../games/flappy_game.dart';
 import '../games/game_2048.dart';
+import '../games/knife_game.dart';
 import '../games/memory_game.dart';
 import '../games/reaction_game.dart';
 import '../games/schulte_game.dart';
 import '../games/sniper_game.dart';
 import '../games/snake_game.dart';
 import '../games/stack_game.dart';
-import '../games/tap_game.dart';
 import '../games/tetris_game.dart';
 import '../games/whack_game.dart';
 import '../services/points_service.dart';
@@ -31,7 +31,7 @@ class _GameDef {
 // ⚠️ 게임 내용이 바뀐 종목은 key 뒤에 버전(2)을 붙여 월드레코드를 새로 시작합니다.
 //    (내용이 그대로인 순서터치·2048만 기존 key 유지 → 기록 보존)
 final List<_GameDef> _kGames = [
-  _GameDef('taptap2', '빠른 탭 ⚡', '15초! ⭐황금 탭 x2 · 🔥콤보 보너스', (f) => TapGame(onFinish: f)),
+  _GameDef('knife', '나이프 던지기 🔪', '회전 통나무에 칼 꽂기! 부딪히면 끝·🍎보너스', (f) => KnifeGame(onFinish: f)),
   _GameDef('reaction2', '반응속도 🟢', '초록 되면 빨리! 빨강 누르면 페널티·🔥콤보', (f) => ReactionGame(onFinish: f)),
   _GameDef('schulte', '순서 터치 🔢', '1→25 순서대로 빨리', (f) => SchulteGame(onFinish: f)),
   _GameDef('color2', '색깔 맞추기 🎨', '글자의 잉크색! 3→7색·🔥콤보 x2/보너스', (f) => ColorGame(onFinish: f)),
