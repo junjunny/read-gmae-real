@@ -81,7 +81,19 @@ class _TetrisGameState extends State<TetrisGame> {
   int _score = 0;
   bool _running = false;
   Timer? _timer;
+  Timer? _softTimer; // 가속(소프트 드롭) — 버튼을 누르고 있는 동안만 동작
+  bool _soft = false;
   final _rng = Random();
+
+  // 가속 버튼: 누르고 있으면 빠르게, 떼면 원래 속도. (중력 타이머는 그대로)
+  void _setSoft(bool on) {
+    _softTimer?.cancel();
+    _soft = on && _running;
+    if (_soft) {
+      _softTimer = Timer.periodic(const Duration(milliseconds: 45), (_) => _tick());
+    }
+    setState(() {});
+  }
 
   int _rand(int n) => _rng.nextInt(n);
 
@@ -111,6 +123,8 @@ class _TetrisGameState extends State<TetrisGame> {
       // 게임 오버
       _running = false;
       _timer?.cancel();
+      _softTimer?.cancel();
+      _soft = false;
       widget.onFinish(_score);
     }
   }
@@ -131,6 +145,8 @@ class _TetrisGameState extends State<TetrisGame> {
         if (!_valid(_piece, _rot, _px, _py)) {
           _running = false;
           _timer?.cancel();
+          _softTimer?.cancel();
+          _soft = false;
           widget.onFinish(_score);
           return;
         }
@@ -205,6 +221,7 @@ class _TetrisGameState extends State<TetrisGame> {
   @override
   void dispose() {
     _timer?.cancel();
+    _softTimer?.cancel();
     super.dispose();
   }
 
@@ -228,13 +245,14 @@ class _TetrisGameState extends State<TetrisGame> {
                 ),
               ),
             ),
-            // 홀드: 보드 아래 오른쪽(중하단). 보드와 겹치지 않게 별도 줄로 배치.
+            // 왼쪽: 가속(꾹 누르면 빠르게) / 오른쪽: 홀드. 보드와 안 겹치게 별도 줄.
             if (_running)
               Padding(
                 padding: const EdgeInsets.only(right: 16, left: 16, top: 4),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    _accelButton(),
+                    const Spacer(),
                     const Text('홀드 ', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
                     _holdPreview(),
                     const SizedBox(width: 12),
@@ -344,6 +362,31 @@ class _TetrisGameState extends State<TetrisGame> {
                 height: 12,
                 child: Container(color: _colors[_hold]),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 가속 버튼: 누르고 있는 동안만 블록이 빨리 내려온다.
+  Widget _accelButton() {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTapDown: (_) => _setSoft(true),
+      onTapUp: (_) => _setSoft(false),
+      onTapCancel: () => _setSoft(false),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: _soft ? cs.primary : cs.primaryContainer,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.keyboard_double_arrow_down, size: 18, color: _soft ? cs.onPrimary : cs.onPrimaryContainer),
+            const SizedBox(width: 6),
+            Text('가속', style: TextStyle(fontWeight: FontWeight.bold, color: _soft ? cs.onPrimary : cs.onPrimaryContainer)),
           ],
         ),
       ),

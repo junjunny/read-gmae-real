@@ -1,13 +1,13 @@
-import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import 'game_fx.dart';
 
 /// 아보카도 점프 🥑: 자동으로 통통 튀며 위로! 좌/우를 누르고 있으면 그 방향으로 이동.
 /// 플랫폼을 밟으면 자동 점프. 화면 밖으로 떨어지면 끝. 높이 올라갈수록 점수.
-/// 🟩 일반 · 🟨 흔들 · 🟥 부서짐(한 번 밟으면) · 🌀 스프링(높이 점프) · ⭐별=3초 무적+자동상승.
+/// 🟩 일반 · 🟧 흔들 · 🟥 부서짐(한 번 밟으면) · 🟦 스프링(높이 점프) · ⭐별=3초 무적+자동상승.
 class AvocadoGame extends StatefulWidget {
   final void Function(int score) onFinish;
   const AvocadoGame({super.key, required this.onFinish});
@@ -16,6 +16,9 @@ class AvocadoGame extends StatefulWidget {
 }
 
 const int _pNormal = 0, _pMoving = 1, _pBreak = 2, _pSpring = 3;
+// 최고점일 때 아보카도가 머무는 화면 비율 / 아보카도 반지름(H) — 페인터와 공유.
+const double _anchor = 0.42;
+const double _r = 0.05;
 
 class _Plat {
   double x; // 현재 중심 x(0~1)
@@ -35,10 +38,8 @@ class _Star {
   _Star(this.x, this.worldY);
 }
 
-class _AvocadoGameState extends State<AvocadoGame> {
+class _AvocadoGameState extends State<AvocadoGame> with SingleTickerProviderStateMixin {
   // 물리(세로는 화면높이 H 비율, 가로는 폭 W 비율 단위)
-  static const double _anchor = 0.42; // 최고점일 때 아보카도가 머무는 화면 비율
-  static const double _r = 0.05; // 아보카도 반지름(H)
   static const double _gravity = 0.0016;
   static const double _jumpV = -0.0300;
   static const double _springV = -0.0520;
@@ -54,12 +55,41 @@ class _AvocadoGameState extends State<AvocadoGame> {
   int _frame = 0;
   int _score = 0;
   bool _running = false;
-  Timer? _loop;
+
+  // 렉 방지: 매 프레임 setState로 위젯 트리 전체를 다시 만들지 않는다.
+  // Ticker로 물리만 갱신하고, repaint 알림으로 페인터(그림)만 다시 그린다.
+  late final Ticker _ticker;
+  final ValueNotifier<int> _repaint = ValueNotifier(0);
+  Duration _last = Duration.zero;
+  double _acc = 0;
 
   final List<_Plat> _platforms = [];
   final List<_Star> _stars = [];
 
   double _height() => -_camY; // 올라간 높이(H)
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = createTicker(_onTick);
+  }
+
+  void _onTick(Duration elapsed) {
+    final dt = (elapsed - _last).inMicroseconds / 1000.0;
+    _last = elapsed;
+    _acc += dt;
+    var stepped = false;
+    var guard = 0;
+    // 60Hz 고정 스텝(고주사율 화면에서도 같은 속도). 과도한 누적은 5스텝으로 제한.
+    while (_acc >= 16 && guard < 5) {
+      _acc -= 16;
+      guard++;
+      _step();
+      stepped = true;
+      if (!_running) break;
+    }
+    if (stepped) _repaint.value++;
+  }
 
   void _start() {
     _x = 0.5;
@@ -78,8 +108,10 @@ class _AvocadoGameState extends State<AvocadoGame> {
     _topWorldY = 0.10;
     _fillAbove();
     _running = true;
-    _loop?.cancel();
-    _loop = Timer.periodic(const Duration(milliseconds: 16), (_) => _tick());
+    _last = Duration.zero;
+    _acc = 0;
+    _ticker.stop();
+    _ticker.start();
     setState(() {});
   }
 
@@ -112,7 +144,7 @@ class _AvocadoGameState extends State<AvocadoGame> {
     }
   }
 
-  void _tick() {
+  void _step() {
     if (!_running) return;
     _frame++;
 
@@ -182,51 +214,52 @@ class _AvocadoGameState extends State<AvocadoGame> {
     // 추락 판정(화면 아래로 벗어남)
     if (_invincible == 0 && (_ay - _camY) > (1.06 - _anchor)) {
       _end();
-      return;
     }
-    setState(() {});
   }
 
   void _end() {
     _running = false;
-    _loop?.cancel();
+    _ticker.stop();
     setState(() {});
     widget.onFinish(_score);
   }
 
   @override
   void dispose() {
-    _loop?.cancel();
+    _ticker.dispose();
+    _repaint.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('🥑 $_score${_invincible > 0 ? '   ⭐무적' : ''}')),
+      appBar: AppBar(
+        title: ValueListenableBuilder<int>(
+          valueListenable: _repaint,
+          builder: (_, __, ___) => Text('🥑 $_score${_invincible > 0 ? '   ⭐무적' : ''}'),
+        ),
+      ),
       body: Stack(
         children: [
-          Positioned.fill(
-            child: Container(
-              decoration: bgGradient(const [Color(0xFFE8F8E0), Color(0xFFB7E4C7)]),
-              child: RepaintBoundary(
-                child: CustomPaint(
-                size: Size.infinite,
-                painter: _AvocadoPainter(
-                  x: _x,
-                  ay: _ay,
-                  vy: _vy,
-                  vx: _vx,
-                  camY: _camY,
-                  anchor: _anchor,
-                  r: _r,
-                  platforms: _platforms,
-                  stars: _stars,
-                  invincible: _invincible,
-                  frame: _frame,
-                  running: _running,
-                  ),
+          // 배경(한 번만 그려지는 정적 레이어)
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFE8F8E0), Color(0xFFB7E4C7)],
                 ),
+              ),
+            ),
+          ),
+          // 게임 그림(자체 RepaintBoundary + repaint 알림으로 페인터만 갱신)
+          Positioned.fill(
+            child: RepaintBoundary(
+              child: CustomPaint(
+                size: Size.infinite,
+                painter: _AvocadoPainter(this, repaint: _repaint),
               ),
             ),
           ),
@@ -289,53 +322,30 @@ class _AvocadoGameState extends State<AvocadoGame> {
 }
 
 class _AvocadoPainter extends CustomPainter {
-  final double x, ay, vy, vx, camY, anchor, r;
-  final List<_Plat> platforms;
-  final List<_Star> stars;
-  final int invincible, frame;
-  final bool running;
-  _AvocadoPainter({
-    required this.x,
-    required this.ay,
-    required this.vy,
-    required this.vx,
-    required this.camY,
-    required this.anchor,
-    required this.r,
-    required this.platforms,
-    required this.stars,
-    required this.invincible,
-    required this.frame,
-    required this.running,
-  });
+  final _AvocadoGameState g;
+  _AvocadoPainter(this.g, {required Listenable repaint}) : super(repaint: repaint);
 
-  double _sy(double worldY, double h) => (anchor + (worldY - camY)) * h;
+  double _sy(double worldY, double h) => (_anchor + (worldY - g._camY)) * h;
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
 
-    // 플랫폼
-    for (final p in platforms) {
-      final cx = p.x * w;
+    for (final p in g._platforms) {
       final cy = _sy(p.worldY, h);
       if (cy < -40 || cy > h + 40) continue;
-      _drawPlatform(canvas, p, cx, cy, w);
+      _drawPlatform(canvas, p, p.x * w, cy, w);
     }
 
-    // 별
-    for (final s in stars) {
+    for (final s in g._stars) {
       if (s.taken) continue;
-      final cx = s.x * w, cy = _sy(s.worldY, h);
+      final cy = _sy(s.worldY, h);
       if (cy < -30 || cy > h + 30) continue;
-      _drawStar(canvas, Offset(cx, cy), w * 0.045, const Color(0xFFFFD54F));
+      _drawStar(canvas, Offset(s.x * w, cy), w * 0.045, const Color(0xFFFFD54F));
     }
 
-    // 아보카도
-    if (running) {
-      final cx = x * w;
-      final cy = _sy(ay, h);
-      _drawAvocado(canvas, Offset(cx, cy), w * 0.13);
+    if (g._running) {
+      _drawAvocado(canvas, Offset(g._x * w, _sy(g._ay, h)), w * 0.13);
     }
   }
 
@@ -359,7 +369,6 @@ class _AvocadoPainter extends CustomPainter {
     }
 
     if (p.broken) {
-      // 부서지는 연출: 두 조각이 벌어지며 떨어짐 + 페이드
       final t = (p.brokenAge / 16).clamp(0.0, 1.0);
       final a = 1 - t;
       final drop = t * 24;
@@ -379,46 +388,39 @@ class _AvocadoPainter extends CustomPainter {
 
   // 귀여운 아보카도(원 2개로 부드러운 실루엣 + 씨앗 + 눈/미소). vy로 살짝 늘어남.
   void _drawAvocado(Canvas canvas, Offset c, double size) {
-    final stretch = (1 + (vy * -3.5)).clamp(0.82, 1.18); // 점프 중 길쭉, 낙하 시 통통
+    final stretch = (1 + (g._vy * -3.5)).clamp(0.82, 1.18);
     canvas.save();
     canvas.translate(c.dx, c.dy);
     canvas.scale(1 / stretch.clamp(0.85, 1.15), stretch);
-    final tilt = (vx * 6).clamp(-0.25, 0.25);
+    final tilt = (g._vx * 6).clamp(-0.25, 0.25);
     canvas.rotate(tilt);
 
-    final R = size * 0.5;
-    final bottom = Offset(0, R * 0.18);
-    final top = Offset(0, -R * 0.75);
-    final topR = R * 0.62;
+    final rr = size * 0.5;
+    final bottom = Offset(0, rr * 0.18);
+    final top = Offset(0, -rr * 0.75);
+    final topR = rr * 0.62;
 
-    // 그림자
     canvas.drawOval(
-        Rect.fromCenter(center: Offset(0, R + 6), width: size * 0.7, height: size * 0.2),
+        Rect.fromCenter(center: Offset(0, rr + 6), width: size * 0.7, height: size * 0.2),
         Paint()..color = Colors.black.withValues(alpha: 0.12));
 
-    // 껍질(진한 초록)
     final skin = Paint()..color = const Color(0xFF386641);
-    canvas.drawCircle(bottom, R, skin);
+    canvas.drawCircle(bottom, rr, skin);
     canvas.drawCircle(top, topR, skin);
 
-    // 과육(연두)
     final flesh = Paint()..color = const Color(0xFFC9E4A6);
-    canvas.drawCircle(bottom, R * 0.74, flesh);
+    canvas.drawCircle(bottom, rr * 0.74, flesh);
     canvas.drawCircle(top, topR * 0.7, flesh);
 
-    // 씨앗
     final pit = Paint()..color = const Color(0xFF8D5524);
-    canvas.drawCircle(bottom, R * 0.34, pit);
-    canvas.drawCircle(bottom + Offset(-R * 0.1, -R * 0.1), R * 0.12, Paint()..color = const Color(0xFFA9714B));
+    canvas.drawCircle(bottom, rr * 0.34, pit);
 
-    // 눈(방향에 따라 동공 이동)
-    final eyeDx = (vx * 18).clamp(-3.0, 3.0);
+    final eyeDx = (g._vx * 18).clamp(-3.0, 3.0);
     for (final s in const [-1.0, 1.0]) {
       final ec = Offset(s * topR * 0.42, top.dy - topR * 0.05);
       canvas.drawCircle(ec, topR * 0.26, Paint()..color = Colors.white);
       canvas.drawCircle(ec + Offset(eyeDx, 1), topR * 0.12, Paint()..color = const Color(0xFF222222));
     }
-    // 미소
     final smile = Paint()
       ..color = const Color(0xFF3A2A1A)
       ..strokeWidth = 2
@@ -426,10 +428,10 @@ class _AvocadoPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawArc(Rect.fromCenter(center: Offset(0, top.dy + topR * 0.32), width: topR * 0.7, height: topR * 0.5),
         0.15 * pi, 0.7 * pi, false, smile);
+
     canvas.restore();
 
-    // 무적 글로우(노란 링)
-    if (invincible > 0) {
+    if (g._invincible > 0) {
       final ring = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3

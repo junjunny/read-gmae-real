@@ -200,11 +200,11 @@ class _GameCard extends StatelessWidget {
         try {
           await svc.submitBest(def.key, uid, score);
           final newRecord = await svc.updateRecord(def.key, uid, score);
-          if (context.mounted) {
-            final msg = newRecord
-                ? '🏆 월드레코드 갱신! ${nickOf(uid)} $score점 — 즉시 +100P!'
-                : '${nickOf(uid)} 점수 $score — 오늘 베스트 반영!';
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+          // 월드레코드 갱신했을 때만 하단 알림. 그 외엔 각 게임의 중앙 점수 화면으로만 안내.
+          if (context.mounted && newRecord) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('🏆 월드레코드 갱신! ${nickOf(uid)} $score점 — 즉시 +100P!')),
+            );
           }
         } catch (e) {
           if (context.mounted) {
