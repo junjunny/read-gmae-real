@@ -20,12 +20,13 @@ const double _cell = 1.0 / _cols;
 const double _rad = _cell / 2;
 const int _rainbow = 91; // 발사체 전용 특수(만능 매치)
 const List<Color> _bubbleColors = [
-  Color(0xFFE53935), Color(0xFF1E88E5), Color(0xFF43A047), Color(0xFFFDD835), Color(0xFF8E24AA),
+  Color(0xFFE53935), Color(0xFF1E88E5), Color(0xFF43A047),
+  Color(0xFFFDD835), Color(0xFF8E24AA), Color(0xFFFB8C00), // 6색(난이도 ↑)
 ];
 
 class _BubbleGameState extends State<BubbleGame> {
   final _rng = Random();
-  // 그리드: 색 인덱스(0~4), 빈칸 -1
+  // 그리드: 색 인덱스(0~5), 빈칸 -1
   List<List<int>> _grid = [];
   int _maxRows = 14;
   double _h = 1.6; // 화면 세로(가로=1 기준)
@@ -37,6 +38,7 @@ class _BubbleGameState extends State<BubbleGame> {
   bool _flying = false;
   int _score = 0;
   int _shots = 0;
+  int _sincePush = 0; // 마지막 줄 추가 이후 발사 횟수
   bool _running = false;
   Timer? _loop;
 
@@ -60,13 +62,14 @@ class _BubbleGameState extends State<BubbleGame> {
 
   void _start() {
     _grid = List.generate(_maxRows, (_) => List.filled(_cols, -1));
-    for (var r = 0; r < 4; r++) {
+    for (var r = 0; r < 5; r++) {
       for (var c = 0; c < _cols; c++) {
         _grid[r][c] = _rng.nextInt(_bubbleColors.length);
       }
     }
     _score = 0;
     _shots = 0;
+    _sincePush = 0;
     _flying = false;
     _cur = _newBubble();
     _nextBubble = _newBubble();
@@ -78,7 +81,7 @@ class _BubbleGameState extends State<BubbleGame> {
 
   int _newBubble() {
     final roll = _rng.nextInt(100);
-    if (roll < 12) return _rainbow; // 🌈 만능 버블
+    if (roll < 6) return _rainbow; // 🌈 만능 버블(빈도 ↓)
     // 보드에 남아있는 색 위주로
     final present = <int>{};
     for (final row in _grid) {
@@ -189,7 +192,13 @@ class _BubbleGameState extends State<BubbleGame> {
     }
 
     _shots++;
-    if (_shots % 6 == 0) _pushDownRow();
+    _sincePush++;
+    // 점진적 압박: 처음엔 5발마다, 진행될수록 더 자주 한 줄 내려온다.
+    final interval = _shots > 60 ? 3 : (_shots > 30 ? 4 : 5);
+    if (_sincePush >= interval) {
+      _sincePush = 0;
+      _pushDownRow();
+    }
 
     _cur = _nextBubble;
     _nextBubble = _newBubble();
