@@ -599,44 +599,66 @@ class _AvocadoPainter extends CustomPainter {
     canvas.drawCircle(c, r * 0.36, Paint()..color = color.withValues(alpha: 0.20 * alpha));
   }
 
-  // 귀여운 로켓: 오른쪽에서 살짝 흔들리며 떠다니고 불꽃이 깜빡인다(벡터, 가볍다).
+  // 귀여운 로켓: 통통한 몸체 + 창문 속 웃는 얼굴 + 볼터치 + 반짝이(벡터, 가볍다).
   void _drawRocket(Canvas canvas, double w, double h, double alpha) {
     final bob = sin(g._frame * 0.05) * w * 0.02;
-    final s = w * 0.06;
+    final tilt = sin(g._frame * 0.05) * 0.06;
+    final s = w * 0.066;
     canvas.save();
     canvas.translate(w * 0.76 + bob, h * 0.66);
-    // 불꽃(깜빡임)
+    canvas.rotate(tilt);
+
+    // 주변 반짝이 별
+    void spark(double dx, double dy, double r) {
+      canvas.drawCircle(
+          Offset(dx, dy), r, Paint()..color = Colors.white.withValues(alpha: (0.55 + 0.45 * sin(g._frame * 0.3 + dx)) * alpha));
+    }
+    spark(-s * 1.35, -s * 0.6, s * 0.09);
+    spark(s * 1.25, -s * 0.1, s * 0.11);
+    spark(s * 0.25, -s * 1.75, s * 0.07);
+
+    // 불꽃(깜빡임, 파스텔)
     final flick = 0.7 + 0.3 * sin(g._frame * 0.4);
     canvas.drawPath(
-        Path()
-          ..moveTo(-s * 0.34, s * 0.95)
-          ..quadraticBezierTo(0, s * (1.55 + 0.5 * flick), s * 0.34, s * 0.95)
-          ..close(),
-        Paint()..color = const Color(0xFFFFA726).withValues(alpha: 0.9 * alpha));
+        Path()..moveTo(-s * 0.34, s * 0.98)..quadraticBezierTo(0, s * (1.65 + 0.5 * flick), s * 0.34, s * 0.98)..close(),
+        Paint()..color = const Color(0xFFFFB74D).withValues(alpha: 0.9 * alpha));
     canvas.drawPath(
-        Path()
-          ..moveTo(-s * 0.2, s * 0.95)
-          ..quadraticBezierTo(0, s * (1.25 + 0.4 * flick), s * 0.2, s * 0.95)
-          ..close(),
-        Paint()..color = const Color(0xFFFFEB3B).withValues(alpha: 0.95 * alpha));
-    // 몸통
+        Path()..moveTo(-s * 0.2, s * 0.98)..quadraticBezierTo(0, s * (1.35 + 0.4 * flick), s * 0.2, s * 0.98)..close(),
+        Paint()..color = const Color(0xFFFFF176).withValues(alpha: 0.95 * alpha));
+
+    // 핀(양옆, 코랄)
+    final fin = Paint()..color = const Color(0xFFFF8A80).withValues(alpha: alpha);
+    canvas.drawPath(Path()..moveTo(-s * 0.4, s * 0.45)..lineTo(-s * 0.92, s * 1.02)..lineTo(-s * 0.4, s * 0.98)..close(), fin);
+    canvas.drawPath(Path()..moveTo(s * 0.4, s * 0.45)..lineTo(s * 0.92, s * 1.02)..lineTo(s * 0.4, s * 0.98)..close(), fin);
+
+    // 몸통(통통한 캡슐, 크림색)
     canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: s * 0.9, height: s * 1.9), Radius.circular(s * 0.45)),
-        Paint()..color = Colors.white.withValues(alpha: alpha));
-    // 코(빨강)
+        RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: s * 1.05, height: s * 2.0), Radius.circular(s * 0.52)),
+        Paint()..color = const Color(0xFFFFF8E1).withValues(alpha: alpha));
+
+    // 코(둥근 코랄 캡)
     canvas.drawPath(
-        Path()
-          ..moveTo(-s * 0.45, -s * 0.5)
-          ..quadraticBezierTo(0, -s * 1.45, s * 0.45, -s * 0.5)
-          ..close(),
-        Paint()..color = const Color(0xFFEF5350).withValues(alpha: alpha));
-    // 핀(양옆 빨강)
-    final fin = Paint()..color = const Color(0xFFEF5350).withValues(alpha: alpha);
-    canvas.drawPath(Path()..moveTo(-s * 0.45, s * 0.4)..lineTo(-s * 0.85, s * 0.95)..lineTo(-s * 0.45, s * 0.95)..close(), fin);
-    canvas.drawPath(Path()..moveTo(s * 0.45, s * 0.4)..lineTo(s * 0.85, s * 0.95)..lineTo(s * 0.45, s * 0.95)..close(), fin);
-    // 창문(파랑)
-    canvas.drawCircle(Offset(0, -s * 0.15), s * 0.28, Paint()..color = const Color(0xFF42A5F5).withValues(alpha: alpha));
-    canvas.drawCircle(Offset(-s * 0.08, -s * 0.23), s * 0.1, Paint()..color = Colors.white.withValues(alpha: 0.7 * alpha));
+        Path()..moveTo(-s * 0.52, -s * 0.55)..quadraticBezierTo(0, -s * 1.55, s * 0.52, -s * 0.55)..close(),
+        Paint()..color = const Color(0xFFFF8A80).withValues(alpha: alpha));
+
+    // 창문(하늘색) + 귀여운 얼굴
+    final wc = Offset(0, -s * 0.12);
+    canvas.drawCircle(wc, s * 0.37, Paint()..color = const Color(0xFFB3E5FC).withValues(alpha: alpha));
+    canvas.drawCircle(wc, s * 0.37, Paint()..style = PaintingStyle.stroke..strokeWidth = s * 0.06..color = const Color(0xFF81D4FA).withValues(alpha: alpha));
+    final eyeP = Paint()..color = const Color(0xFF3E2723).withValues(alpha: alpha);
+    canvas.drawCircle(wc + Offset(-s * 0.13, -s * 0.03), s * 0.065, eyeP);
+    canvas.drawCircle(wc + Offset(s * 0.13, -s * 0.03), s * 0.065, eyeP);
+    final shine = Paint()..color = Colors.white.withValues(alpha: 0.9 * alpha);
+    canvas.drawCircle(wc + Offset(-s * 0.11, -s * 0.055), s * 0.022, shine);
+    canvas.drawCircle(wc + Offset(s * 0.15, -s * 0.055), s * 0.022, shine);
+    final blush = Paint()..color = const Color(0xFFFF8A80).withValues(alpha: 0.5 * alpha);
+    canvas.drawCircle(wc + Offset(-s * 0.22, s * 0.1), s * 0.05, blush);
+    canvas.drawCircle(wc + Offset(s * 0.22, s * 0.1), s * 0.05, blush);
+    canvas.drawArc(
+        Rect.fromCenter(center: wc + Offset(0, s * 0.06), width: s * 0.24, height: s * 0.18),
+        0.15 * pi, 0.7 * pi, false,
+        Paint()..style = PaintingStyle.stroke..strokeWidth = s * 0.045..strokeCap = StrokeCap.round..color = const Color(0xFF3E2723).withValues(alpha: alpha));
+
     canvas.restore();
   }
 
