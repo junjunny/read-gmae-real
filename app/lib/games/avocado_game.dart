@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import 'game_chrome.dart';
 import 'game_fx.dart';
 
 /// 아보카도 점프 🥑: 자동으로 통통 튀며 위로! 좌/우를 누르고 있으면 그 방향으로 이동.
@@ -237,18 +238,12 @@ class _AvocadoGameState extends State<AvocadoGame> with SingleTickerProviderStat
       appBar: AppBar(
         title: ValueListenableBuilder<int>(
           valueListenable: _repaint,
-          builder: (_, __, ___) => Text('🥑 $_score${_invincible > 0 ? '   ⭐무적' : ''}'),
+          builder: (_, __, ___) => GameTitle('🥑  $_score${_invincible > 0 ? '  ⭐무적' : ''}'),
         ),
       ),
       body: Stack(
         children: [
-          // 배경(우주 테마 — 한 번만 그려지는 정적 레이어, 매 프레임 비용 없음)
-          Positioned.fill(
-            child: RepaintBoundary(
-              child: CustomPaint(painter: _SpaceBgPainter()),
-            ),
-          ),
-          // 게임 그림(자체 RepaintBoundary + repaint 알림으로 페인터만 갱신)
+          // 배경은 게임 페인터 안에서 고도(점수)에 따라 함께 그린다(낮→우주→달→행성).
           Positioned.fill(
             child: RepaintBoundary(
               child: CustomPaint(
@@ -324,6 +319,9 @@ class _AvocadoPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
+
+    // 고도(점수)에 따른 배경: ~2500 전 낮(태양+구름) → 우주(별) → 3500 달 → 5000 행성
+    _drawBackground(canvas, size, g._score.toDouble(), g._camY);
 
     for (final p in g._platforms) {
       final cy = _sy(p.worldY, h);
@@ -461,82 +459,117 @@ class _AvocadoPainter extends CustomPainter {
     canvas.drawCircle(c, rad * 0.3, Paint()..color = Colors.white.withValues(alpha: 0.7));
   }
 
+  // 고도(점수)에 따라 배경을 그린다. 셰이프 위주라 가볍다(매 프레임 OK).
+  // ~2500 전: 하늘+태양+구름 / 그 후: 우주(별) / 3500+: 노란 초승달 / 5000+: 고리 행성.
+  void _drawBackground(Canvas canvas, Size size, double score, double camY) {
+    final w = size.width, h = size.height;
+    final rect = Offset.zero & size;
+    final t = ((score - 2400) / 200).clamp(0.0, 1.0); // 0=낮 → 1=우주(2400~2600 전환)
+
+    // 하늘 그라데이션(낮 ↔ 우주 크로스페이드)
+    final top = Color.lerp(const Color(0xFF8FD3FF), const Color(0xFF14163A), t)!;
+    final mid = Color.lerp(const Color(0xFFCDEBFF), const Color(0xFF3A2B63), t)!;
+    final bot = Color.lerp(const Color(0xFFEAF7E9), const Color(0xFF7B63B0), t)!;
+    canvas.drawRect(
+        rect,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [top, mid, bot],
+            stops: const [0.0, 0.55, 1.0],
+          ).createShader(rect));
+
+    // 낮: 태양 + 구름
+    final day = 1 - t;
+    if (day > 0.01) {
+      final sunC = Offset(w * 0.8, h * 0.14);
+      canvas.drawCircle(sunC, w * 0.16, Paint()..color = const Color(0xFFFFF59D).withValues(alpha: 0.35 * day));
+      canvas.drawCircle(sunC, w * 0.10, Paint()..color = const Color(0xFFFFEB3B).withValues(alpha: 0.95 * day));
+      _drawCloud(canvas, Offset(w * 0.26, h * 0.17), w * 0.16, day);
+      _drawCloud(canvas, Offset(w * 0.62, h * 0.32), w * 0.20, day * 0.9);
+      _drawCloud(canvas, Offset(w * 0.16, h * 0.46), w * 0.13, day * 0.8);
+    }
+
+    // 우주: 별(오를수록 아래로 흐르는 패럴랙스)
+    if (t > 0.01) {
+      final off = (-camY) * 0.12;
+      final star = Paint();
+      for (final s in _bgStars) {
+        final y = ((s.y + off) % 1.0) * h;
+        star.color = Colors.white.withValues(alpha: s.a * t);
+        canvas.drawCircle(Offset(s.x * w, y), s.r, star);
+      }
+      final spark = Paint()
+        ..color = Colors.white.withValues(alpha: 0.85 * t)
+        ..strokeWidth = 1.2
+        ..strokeCap = StrokeCap.round;
+      for (final sp in _bgSparks) {
+        final x = sp.dx * w, y = ((sp.dy + off) % 1.0) * h;
+        const ss = 3.6;
+        canvas.drawLine(Offset(x - ss, y), Offset(x + ss, y), spark);
+        canvas.drawLine(Offset(x, y - ss), Offset(x, y + ss), spark);
+      }
+    }
+
+    // 달(3500+): 그냥 노란 초승달
+    final m = ((score - 3500) / 200).clamp(0.0, 1.0);
+    if (m > 0.01) {
+      final moonC = Offset(w * 0.76, h * 0.12);
+      final moonR = w * 0.10;
+      final crescent = Path.combine(
+        PathOperation.difference,
+        Path()..addOval(Rect.fromCircle(center: moonC, radius: moonR)),
+        Path()..addOval(Rect.fromCircle(center: moonC + Offset(moonR * 0.5, -moonR * 0.18), radius: moonR * 0.92)),
+      );
+      canvas.drawPath(crescent, Paint()..color = const Color(0xFFFFE082).withValues(alpha: m));
+    }
+
+    // 행성(5000+): 고리 달린 작은 행성
+    final pl = ((score - 5000) / 200).clamp(0.0, 1.0);
+    if (pl > 0.01) {
+      final pc = Offset(w * 0.2, h * 0.2);
+      final pr = w * 0.055;
+      canvas.drawCircle(pc, pr, Paint()..color = const Color(0xFFFFAB91).withValues(alpha: pl));
+      canvas.drawCircle(pc + Offset(-pr * 0.3, -pr * 0.3), pr * 0.32, Paint()..color = Colors.white.withValues(alpha: 0.25 * pl));
+      canvas.save();
+      canvas.translate(pc.dx, pc.dy);
+      canvas.rotate(-0.4);
+      canvas.drawOval(
+          Rect.fromCenter(center: Offset.zero, width: pr * 3.4, height: pr * 1.1),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.2
+            ..color = const Color(0xFFFFD180).withValues(alpha: pl));
+      canvas.restore();
+    }
+  }
+
+  void _drawCloud(Canvas canvas, Offset c, double s, double alpha) {
+    final p = Paint()..color = Colors.white.withValues(alpha: 0.9 * alpha);
+    canvas.drawOval(Rect.fromCenter(center: c, width: s * 1.7, height: s * 0.7), p);
+    canvas.drawCircle(c + Offset(-s * 0.45, 0), s * 0.42, p);
+    canvas.drawCircle(c + Offset(s * 0.45, -s * 0.06), s * 0.46, p);
+    canvas.drawCircle(c + Offset(0, -s * 0.22), s * 0.5, p);
+  }
+
   @override
   bool shouldRepaint(covariant _AvocadoPainter old) => true;
 }
 
-/// 우주 배경(정적): 밤하늘 그라데이션 + 별 + 초승달 + 작은 행성.
-/// 한 번만 그려지고(매 프레임 비용 0) 화면 크기가 바뀔 때만 다시 그린다.
-class _SpaceBgPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width, h = size.height;
-    final rect = Offset.zero & size;
-
-    // 밤하늘 그라데이션
-    canvas.drawRect(
-        rect,
-        Paint()
-          ..shader = const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF14163A), Color(0xFF3A2B63), Color(0xFF7B63B0)],
-            stops: [0.0, 0.55, 1.0],
-          ).createShader(rect));
-
-    // 별(고정 시드 → 다시 그려도 같은 자리)
-    final rng = Random(7);
-    final star = Paint();
-    for (var i = 0; i < 64; i++) {
-      final x = rng.nextDouble() * w;
-      final y = rng.nextDouble() * h * 0.95;
-      final r = rng.nextDouble() * 1.3 + 0.4;
-      star.color = Colors.white.withValues(alpha: 0.3 + rng.nextDouble() * 0.55);
-      canvas.drawCircle(Offset(x, y), r, star);
-    }
-    // 큰 반짝임 별(십자 모양)
-    final spark = Paint()
-      ..color = Colors.white.withValues(alpha: 0.85)
-      ..strokeWidth = 1.2
-      ..strokeCap = StrokeCap.round;
-    for (var i = 0; i < 6; i++) {
-      final x = rng.nextDouble() * w;
-      final y = rng.nextDouble() * h * 0.7;
-      const s = 3.6;
-      canvas.drawLine(Offset(x - s, y), Offset(x + s, y), spark);
-      canvas.drawLine(Offset(x, y - s), Offset(x, y + s), spark);
-    }
-
-    // 초승달(오른쪽 위) — 두 원의 차집합으로 깔끔하게
-    final moonC = Offset(w * 0.78, h * 0.12);
-    final moonR = w * 0.10;
-    // 은은한 달무리
-    canvas.drawCircle(moonC, moonR * 1.5, Paint()..color = const Color(0x22FFF3C4));
-    final crescent = Path.combine(
-      PathOperation.difference,
-      Path()..addOval(Rect.fromCircle(center: moonC, radius: moonR)),
-      Path()..addOval(Rect.fromCircle(center: moonC + Offset(moonR * 0.5, -moonR * 0.18), radius: moonR * 0.92)),
-    );
-    canvas.drawPath(crescent, Paint()..color = const Color(0xFFFFF3C4));
-
-    // 작은 고리 행성(왼쪽 위)
-    final planetC = Offset(w * 0.17, h * 0.22);
-    final planetR = w * 0.052;
-    canvas.drawCircle(planetC, planetR, Paint()..color = const Color(0xFFFFAB91));
-    canvas.drawCircle(planetC + Offset(-planetR * 0.3, -planetR * 0.3), planetR * 0.35,
-        Paint()..color = Colors.white.withValues(alpha: 0.25));
-    canvas.save();
-    canvas.translate(planetC.dx, planetC.dy);
-    canvas.rotate(-0.4);
-    canvas.drawOval(
-        Rect.fromCenter(center: Offset.zero, width: planetR * 3.4, height: planetR * 1.1),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.2
-          ..color = const Color(0xFFFFD180));
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _SpaceBgPainter old) => false;
+/// 우주 배경 별(정규화 좌표 0~1, 반지름 px, 알파) — 고정 시드로 한 번만 생성.
+class _BgStar {
+  final double x, y, r, a;
+  const _BgStar(this.x, this.y, this.r, this.a);
 }
+
+final List<_BgStar> _bgStars = () {
+  final rng = Random(7);
+  return List.generate(
+      58, (_) => _BgStar(rng.nextDouble(), rng.nextDouble(), rng.nextDouble() * 1.3 + 0.4, 0.3 + rng.nextDouble() * 0.55));
+}();
+
+final List<Offset> _bgSparks = () {
+  final rng = Random(19);
+  return List.generate(6, (_) => Offset(rng.nextDouble(), rng.nextDouble()));
+}();

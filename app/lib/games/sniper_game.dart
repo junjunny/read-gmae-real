@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_chrome.dart';
+
 /// 저격수 🎯: 움직이는 타겟을 빠르게 탭! 25초 동안 최대한 많이 맞히기.
 /// 진행할수록 더 자주·빠르게, 그리고 타겟 크기도 점점 작아진다.
 /// 👑 황금 타겟은 x3점!
@@ -117,7 +119,7 @@ class _SniperGameState extends State<SniperGame> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('저격수 🎯   ⏱️$_left  ⭐$_score')),
+      appBar: AppBar(title: GameTitle('🎯  ⏱️$_left  ⭐$_score')),
       body: !_running
           ? Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [

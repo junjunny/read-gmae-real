@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_chrome.dart';
+
 /// 두더지 잡기: 9칸 중 튀어나오는 두더지(🐹)를 탭! 폭탄(💣)은 누르면 -3점. 20초.
 /// 👑 황금 두더지는 x3점(+30)!
 class WhackGame extends StatefulWidget {
@@ -109,7 +111,7 @@ class _WhackGameState extends State<WhackGame> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF1E9DD),
-      appBar: AppBar(title: Text('두더지 잡기 🔨  ⏱️$_left  ⭐$_score')),
+      appBar: AppBar(title: GameTitle('🔨  ⏱️$_left  ⭐$_score')),
       body: !_running
           ? Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [

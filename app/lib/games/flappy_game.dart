@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_chrome.dart';
+
 import 'game_fx.dart';
 
 /// 플래피버드 🐦: 탭해서 날아올라 파이프 사이를 통과! 통과할 때마다 +1점.
@@ -160,7 +162,7 @@ class _FlappyGameState extends State<FlappyGame> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('플래피버드 🐦   $_score${_invincible > 0 ? '   ⭐무적' : ''}${_wide > 0 ? '   ↔️' : ''}')),
+      appBar: AppBar(title: GameTitle('🐦  $_score${_invincible > 0 ? '  ⭐무적' : ''}${_wide > 0 ? '  ↔️' : ''}')),
       body: GestureDetector(
         onTap: _flap,
         behavior: HitTestBehavior.opaque,

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'game_chrome.dart';
+
 /// 블록 쌓기: 좌우로 움직이는 블록을 탭해서 떨어뜨려 쌓기. 어긋난 만큼 잘려나감.
 /// 안 겹치면 끝. 높이 쌓을수록 고득점(점점 빨라짐).
 /// ✨ 퍼펙트 착지(딱 맞게 쌓으면) 폭이 안 줄고 반짝 + 보너스 점수!
@@ -108,7 +110,7 @@ class _StackGameState extends State<StackGame> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('블록 쌓기 🏗️   $_score')),
+      appBar: AppBar(title: GameTitle('🏗️  $_score')),
       body: !_running
           ? Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [

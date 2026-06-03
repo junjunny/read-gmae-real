@@ -6,6 +6,7 @@ import '../games/breakout_game.dart';
 import '../games/bubble_game.dart';
 import '../games/color_game.dart';
 import '../games/dart_game.dart';
+import '../games/game_chrome.dart';
 import '../games/flappy_game.dart';
 import '../games/game_2048.dart';
 import '../games/knife_game.dart';
@@ -195,8 +196,11 @@ class _GameCard extends StatelessWidget {
 
   Future<void> _play(BuildContext context) async {
     final uid = SessionPrefs.userId ?? '0421';
+    final best = record?['score'] as int?;
     await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => def.builder((score) async {
+      builder: (_) => GameRecord(
+        best: best,
+        child: def.builder((score) async {
         try {
           await svc.submitBest(def.key, uid, score);
           final newRecord = await svc.updateRecord(def.key, uid, score);
@@ -211,7 +215,8 @@ class _GameCard extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('점수 저장 실패: $e'), duration: const Duration(seconds: 6)));
           }
         }
-      }),
+        }),
+      ),
     ));
   }
 }

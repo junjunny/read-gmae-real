@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_chrome.dart';
+
 /// 간단한 테트리스. 줄을 지우면 점수 획득. 게임 오버 시 onFinish(score).
 class TetrisGame extends StatefulWidget {
   final void Function(int score) onFinish;
@@ -77,6 +79,7 @@ class _TetrisGameState extends State<TetrisGame> {
   List<List<int>> _grid = List.generate(_rows, (_) => List.filled(_cols, -1)); // -1 빈칸, 0~6 색
   int _piece = 0, _rot = 0, _px = 3, _py = 0;
   int _hold = -1; // 홀드 중인 조각(-1=없음)
+  int _next = 0; // 다음에 나올 조각
   bool _holdUsed = false; // 조각당 1회만 홀드 가능
   int _score = 0;
   bool _running = false;
@@ -101,6 +104,7 @@ class _TetrisGameState extends State<TetrisGame> {
     _grid = List.generate(_rows, (_) => List.filled(_cols, -1));
     _score = 0;
     _hold = -1;
+    _next = _rand(7);
     _spawn();
     _running = true;
     _restartTimer();
@@ -114,7 +118,8 @@ class _TetrisGameState extends State<TetrisGame> {
   }
 
   void _spawn() {
-    _piece = _rand(7);
+    _piece = _next;
+    _next = _rand(7);
     _rot = 0;
     _px = 3;
     _py = 0;
@@ -229,7 +234,7 @@ class _TetrisGameState extends State<TetrisGame> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF12161D),
-      appBar: AppBar(title: Text('테트리스 🧱   점수 $_score')),
+      appBar: AppBar(title: GameTitle('🧱  점수 $_score')),
       body: SafeArea(
         child: Column(
           children: [
@@ -252,6 +257,10 @@ class _TetrisGameState extends State<TetrisGame> {
                 child: Row(
                   children: [
                     _accelButton(),
+                    const Spacer(),
+                    // 가운데: 다음 블록 미리보기(작게)
+                    const Text('다음 ', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
+                    _piecePreview(_next),
                     const Spacer(),
                     const Text('홀드 ', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
                     _holdPreview(),
@@ -335,8 +344,11 @@ class _TetrisGameState extends State<TetrisGame> {
     );
   }
 
-  Widget _holdPreview() {
-    if (_hold == -1) {
+  Widget _holdPreview() => _piecePreview(_hold);
+
+  // 조각 미리보기(홀드·다음 공용). piece == -1 이면 '—'.
+  Widget _piecePreview(int piece) {
+    if (piece == -1) {
       return Container(
         width: 56,
         height: 28,
@@ -345,7 +357,7 @@ class _TetrisGameState extends State<TetrisGame> {
         child: const Text('—', style: TextStyle(color: Colors.white54)),
       );
     }
-    final cells = _shapes[_hold][0];
+    final cells = _shapes[piece][0];
     return Container(
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(4)),
@@ -360,7 +372,7 @@ class _TetrisGameState extends State<TetrisGame> {
                 top: c[1] * 13.0,
                 width: 12,
                 height: 12,
-                child: Container(color: _colors[_hold]),
+                child: Container(color: _colors[piece]),
               ),
           ],
         ),

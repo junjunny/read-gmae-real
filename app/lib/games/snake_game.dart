@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_chrome.dart';
+
 /// 스네이크 🐍: 먹이를 먹으면 길어지고 점점 빨라짐. 벽이나 몸통에 부딪히면 끝.
 /// 점수 = 먹은 먹이 수. 스와이프(또는 방향 버튼)로 조작.
 /// 🐢 스페셜 먹이를 먹으면 잠시 속도가 느려진다(+2점).
@@ -150,7 +152,7 @@ class _SnakeGameState extends State<SnakeGame> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('스네이크 🐍   $_score${_slowTicks > 0 ? '   🐢 감속!' : ''}')),
+      appBar: AppBar(title: GameTitle('🐍  $_score${_slowTicks > 0 ? '  🐢 감속!' : ''}')),
       body: !_running
           ? Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [

@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_chrome.dart';
+
 /// 반응속도: 빨강 화면이 초록으로 바뀌는 순간 탭! 빠를수록 고득점. (5라운드 합산)
 /// ⚠️ 빨간 화면에서 탭하면 페널티(-100, 콤보 리셋) / 🔥 연속 성공 콤보 보너스(콤보×20).
 class ReactionGame extends StatefulWidget {
@@ -109,7 +111,7 @@ class _ReactionGameState extends State<ReactionGame> {
         break;
     }
     return Scaffold(
-      appBar: AppBar(title: Text('반응속도 🟢  $_round/$_rounds  🔥$_combo')),
+      appBar: AppBar(title: GameTitle('🟢  $_round/$_rounds  🔥$_combo')),
       body: GestureDetector(
         onTap: _tap,
         child: AnimatedContainer(

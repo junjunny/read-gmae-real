@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_chrome.dart';
+
 /// 색깔 맞추기: 22초 동안 빠르게! 초반 3색 → 후반 7색으로 점점 어려워짐.
 /// 글자의 "잉크 색"을 고르기 / 🔥 5콤보 x2점 / ✨ 10콤보 반짝+보너스(+50).
 class ColorGame extends StatefulWidget {
@@ -91,7 +93,7 @@ class _ColorGameState extends State<ColorGame> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFEFF4FB),
-      appBar: AppBar(title: Text('색깔 맞추기 🎨  ⏱️$_left  ⭐$_score  🔥$_combo')),
+      appBar: AppBar(title: GameTitle('🎨  ⏱️$_left  ⭐$_score  🔥$_combo')),
       body: !_running
           ? Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [

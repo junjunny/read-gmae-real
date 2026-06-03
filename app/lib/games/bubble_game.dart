@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_chrome.dart';
+
 import 'game_fx.dart';
 
 /// 버블슈터 🫧: 아래에서 버블을 쏴 같은 색 3개 이상을 터뜨린다.
@@ -356,7 +358,7 @@ class _BubbleGameState extends State<BubbleGame> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('버블슈터 🫧   $_score')),
+      appBar: AppBar(title: GameTitle('🫧  $_score')),
       body: LayoutBuilder(builder: (context, box) {
         final w = box.maxWidth, h = box.maxHeight;
         _h = h / w; // 가로=1 기준 세로 길이

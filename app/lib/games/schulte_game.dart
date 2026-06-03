@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_chrome.dart';
+
 /// 1→25를 순서대로 빨리 터치! 빠를수록 고득점.
 class SchulteGame extends StatefulWidget {
   final void Function(int score) onFinish;
@@ -58,7 +60,7 @@ class _SchulteGameState extends State<SchulteGame> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFEFF4FB),
-      appBar: AppBar(title: Text('순서 터치 🔢  ${(_elapsed / 1000).toStringAsFixed(1)}s')),
+      appBar: AppBar(title: GameTitle('🔢  ${_next - 1}/25  ⏱️${(_elapsed / 1000).toStringAsFixed(1)}s')),
       body: !_running
           ? Center(
               child: Column(

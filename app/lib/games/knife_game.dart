@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_chrome.dart';
+
 import 'game_fx.dart';
 
 /// 나이프 던지기 🔪 (Knife Hit): 회전하는 통나무에 칼을 꽂는다.
@@ -144,7 +146,7 @@ class _KnifeGameState extends State<KnifeGame> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('⭐ $_score')),
+      appBar: AppBar(title: GameTitle('🔪  $_score')),
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _tap,

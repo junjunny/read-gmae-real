@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_chrome.dart';
+
 import 'game_fx.dart';
 
 /// 다트 게임 🎯: 좌우로 흔들리는 과녁에 타이밍 맞춰 다트를 던진다.
@@ -168,7 +170,7 @@ class _DartGameState extends State<DartGame> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('🎯 $_score')),
+      appBar: AppBar(title: GameTitle('🎯  $_score')),
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _tap,

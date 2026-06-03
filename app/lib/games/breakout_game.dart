@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_chrome.dart';
+
 import 'game_fx.dart';
 
 /// 벽돌깨기 🧱: 패들을 좌우로 움직여 공을 튕겨 벽돌을 부순다.
@@ -308,7 +310,7 @@ class _BreakoutGameState extends State<BreakoutGame> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('벽돌깨기 🧱  Lv$_level  ${'❤️' * _lives}  $_score${_doubleDmg > 0 ? ' 💥x2' : ''}${_magnet > 0 ? ' 🧲' : ''}')),
+      appBar: AppBar(title: GameTitle('🧱  Lv$_level  ${'❤️' * _lives}  $_score${_doubleDmg > 0 ? ' 💥x2' : ''}${_magnet > 0 ? ' 🧲' : ''}')),
       body: LayoutBuilder(builder: (context, box) {
         final w = box.maxWidth, h = box.maxHeight;
         return GestureDetector(

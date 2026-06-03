@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_chrome.dart';
+
 /// 사과게임 🍎: 2분 동안 드래그로 사각형을 그려 그 안의 사과 숫자 합이 "딱 10"이면 제거! 제거한 사과 수만큼 점수.
 /// 👑 황금 사과가 포함되면 주변 사과까지 자동 제거 / ⏰ 시간 사과를 없애면 +10초.
 class AppleGame extends StatefulWidget {
@@ -134,7 +136,7 @@ class _AppleGameState extends State<AppleGame> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('사과게임 🍎   ⏱️$_left초   ⭐$_score')),
+      appBar: AppBar(title: GameTitle('🍎  ⏱️$_left초  ⭐$_score')),
       body: !_running
           ? Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [

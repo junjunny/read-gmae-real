@@ -57,7 +57,7 @@ void main() {
       await tester.tap(find.byType(GestureDetector).first, warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 250));
     }
-    expect(find.textContaining('⭐'), findsWidgets); // 상단바에 점수만 표시
+    expect(find.textContaining('🔪'), findsWidgets); // 상단바에 로고+점수만 표시
     await teardown(tester);
   });
 
@@ -216,7 +216,7 @@ void main() {
     await tester.tap(find.byType(GestureDetector).first, warnIfMissed: false); // 공 발사
     await tester.pump(const Duration(seconds: 6));
     // 크래시 없이 진행(점수 표시 존재)
-    expect(find.textContaining('벽돌깨기'), findsOneWidget);
+    expect(find.textContaining('🧱'), findsWidgets); // 로고만 표시
     await teardown(tester);
   });
 
@@ -227,7 +227,7 @@ void main() {
       await tester.tapAt(const Offset(540, 200)); // 화면 윗부분으로 발사
       await tester.pump(const Duration(milliseconds: 800));
     }
-    expect(find.textContaining('버블슈터'), findsOneWidget);
+    expect(find.textContaining('🫧'), findsWidgets); // 로고만 표시
     await teardown(tester);
   });
 

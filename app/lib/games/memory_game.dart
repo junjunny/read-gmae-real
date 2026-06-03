@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'game_chrome.dart';
+
 /// 카드 짝맞추기: 12쌍(24장)을 뒤집어 짝 맞추기. 빠를수록 + 콤보 이어갈수록 고득점.
 /// 🃏 조커 카드 짝은 보너스(+200) / 🔥 연속 성공 콤보(콤보×10 추가점).
 class MemoryGame extends StatefulWidget {
@@ -102,7 +104,7 @@ class _MemoryGameState extends State<MemoryGame> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFEFF4FB),
-      appBar: AppBar(title: Text('카드 짝맞추기 🃏  ⏱️${_elapsed}s  ⭐$_score  🔥$_combo')),
+      appBar: AppBar(title: GameTitle('🃏  ⏱️${_elapsed}s  ⭐$_score  🔥$_combo')),
       body: !_started
           ? Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
