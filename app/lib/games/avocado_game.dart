@@ -242,16 +242,10 @@ class _AvocadoGameState extends State<AvocadoGame> with SingleTickerProviderStat
       ),
       body: Stack(
         children: [
-          // 배경(한 번만 그려지는 정적 레이어)
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFFE8F8E0), Color(0xFFB7E4C7)],
-                ),
-              ),
+          // 배경(우주 테마 — 한 번만 그려지는 정적 레이어, 매 프레임 비용 없음)
+          Positioned.fill(
+            child: RepaintBoundary(
+              child: CustomPaint(painter: _SpaceBgPainter()),
             ),
           ),
           // 게임 그림(자체 RepaintBoundary + repaint 알림으로 페인터만 갱신)
@@ -404,9 +398,19 @@ class _AvocadoPainter extends CustomPainter {
         Rect.fromCenter(center: Offset(0, rr + 6), width: size * 0.7, height: size * 0.2),
         Paint()..color = Colors.black.withValues(alpha: 0.12));
 
-    final skin = Paint()..color = const Color(0xFF386641);
-    canvas.drawCircle(bottom, rr, skin);
-    canvas.drawCircle(top, topR, skin);
+    // 몸통 실루엣(원 2개를 합쳐 부드럽게) + 어두운 우주 배경에서 잘 보이게 밝은 테두리
+    final body = Path.combine(
+      PathOperation.union,
+      Path()..addOval(Rect.fromCircle(center: bottom, radius: rr)),
+      Path()..addOval(Rect.fromCircle(center: top, radius: topR)),
+    );
+    canvas.drawPath(body, Paint()..color = const Color(0xFF386641));
+    canvas.drawPath(
+        body,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.4
+          ..color = const Color(0xFFEAFBD0).withValues(alpha: 0.55));
 
     final flesh = Paint()..color = const Color(0xFFC9E4A6);
     canvas.drawCircle(bottom, rr * 0.74, flesh);
@@ -459,4 +463,80 @@ class _AvocadoPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _AvocadoPainter old) => true;
+}
+
+/// 우주 배경(정적): 밤하늘 그라데이션 + 별 + 초승달 + 작은 행성.
+/// 한 번만 그려지고(매 프레임 비용 0) 화면 크기가 바뀔 때만 다시 그린다.
+class _SpaceBgPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final rect = Offset.zero & size;
+
+    // 밤하늘 그라데이션
+    canvas.drawRect(
+        rect,
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF14163A), Color(0xFF3A2B63), Color(0xFF7B63B0)],
+            stops: [0.0, 0.55, 1.0],
+          ).createShader(rect));
+
+    // 별(고정 시드 → 다시 그려도 같은 자리)
+    final rng = Random(7);
+    final star = Paint();
+    for (var i = 0; i < 64; i++) {
+      final x = rng.nextDouble() * w;
+      final y = rng.nextDouble() * h * 0.95;
+      final r = rng.nextDouble() * 1.3 + 0.4;
+      star.color = Colors.white.withValues(alpha: 0.3 + rng.nextDouble() * 0.55);
+      canvas.drawCircle(Offset(x, y), r, star);
+    }
+    // 큰 반짝임 별(십자 모양)
+    final spark = Paint()
+      ..color = Colors.white.withValues(alpha: 0.85)
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < 6; i++) {
+      final x = rng.nextDouble() * w;
+      final y = rng.nextDouble() * h * 0.7;
+      const s = 3.6;
+      canvas.drawLine(Offset(x - s, y), Offset(x + s, y), spark);
+      canvas.drawLine(Offset(x, y - s), Offset(x, y + s), spark);
+    }
+
+    // 초승달(오른쪽 위) — 두 원의 차집합으로 깔끔하게
+    final moonC = Offset(w * 0.78, h * 0.12);
+    final moonR = w * 0.10;
+    // 은은한 달무리
+    canvas.drawCircle(moonC, moonR * 1.5, Paint()..color = const Color(0x22FFF3C4));
+    final crescent = Path.combine(
+      PathOperation.difference,
+      Path()..addOval(Rect.fromCircle(center: moonC, radius: moonR)),
+      Path()..addOval(Rect.fromCircle(center: moonC + Offset(moonR * 0.5, -moonR * 0.18), radius: moonR * 0.92)),
+    );
+    canvas.drawPath(crescent, Paint()..color = const Color(0xFFFFF3C4));
+
+    // 작은 고리 행성(왼쪽 위)
+    final planetC = Offset(w * 0.17, h * 0.22);
+    final planetR = w * 0.052;
+    canvas.drawCircle(planetC, planetR, Paint()..color = const Color(0xFFFFAB91));
+    canvas.drawCircle(planetC + Offset(-planetR * 0.3, -planetR * 0.3), planetR * 0.35,
+        Paint()..color = Colors.white.withValues(alpha: 0.25));
+    canvas.save();
+    canvas.translate(planetC.dx, planetC.dy);
+    canvas.rotate(-0.4);
+    canvas.drawOval(
+        Rect.fromCenter(center: Offset.zero, width: planetR * 3.4, height: planetR * 1.1),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.2
+          ..color = const Color(0xFFFFD180));
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _SpaceBgPainter old) => false;
 }

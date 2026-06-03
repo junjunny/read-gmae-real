@@ -90,7 +90,7 @@ class _TetrisGameState extends State<TetrisGame> {
     _softTimer?.cancel();
     _soft = on && _running;
     if (_soft) {
-      _softTimer = Timer.periodic(const Duration(milliseconds: 45), (_) => _tick());
+      _softTimer = Timer.periodic(const Duration(milliseconds: 85), (_) => _tick());
     }
     setState(() {});
   }
