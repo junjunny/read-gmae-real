@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../app_state.dart';
 import '../services/auth_service.dart';
+import '../services/image_pick.dart';
 import '../services/points_service.dart';
 import '../services/session_prefs.dart';
 import '../util/dday.dart';
@@ -37,9 +37,8 @@ class _HomeDashboardState extends State<HomeDashboard> {
 
   Future<void> _pickProfile() async {
     try {
-      final f = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 400, maxHeight: 400, imageQuality: 75);
-      if (f == null) return;
-      final bytes = await f.readAsBytes();
+      final bytes = await pickImageBytes();
+      if (bytes == null) return;
       final b64 = base64Encode(bytes);
       await SessionPrefs.setProfile(b64); // 로컬
       if (firebaseReady) await _points.setProfile(SessionPrefs.userId ?? '0421', b64); // 공유

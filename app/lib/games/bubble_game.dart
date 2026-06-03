@@ -210,18 +210,8 @@ class _BubbleGameState extends State<BubbleGame> {
     return null;
   }
 
-  // 천장 연결성 판정용(상하좌우 4방향).
-  List<List<int>> _neighbors(int r, int c) {
-    final res = <List<int>>[];
-    for (final d in const [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-      final nr = r + d[0], nc = c + d[1];
-      if (nr >= 0 && nr < _maxRows && nc >= 0 && nc < _cols) res.add([nr, nc]);
-    }
-    return res;
-  }
-
-  // 매치 판정용(대각선 포함 8방향) — 사각 격자라 대각선으로 닿은 같은 색이
-  // 안 터지던(씹히던) 문제를 해결한다.
+  // 인접(대각선 포함 8방향) — 사각 격자라 대각선으로 닿은 같은 색이
+  // 안 터지던(씹히던) 문제를 해결한다. 매치·천장연결성 모두 동일 기준 사용.
   List<List<int>> _around8(int r, int c) {
     final res = <List<int>>[];
     for (var dr = -1; dr <= 1; dr++) {
@@ -264,7 +254,7 @@ class _BubbleGameState extends State<BubbleGame> {
       if (connected.contains(key)) continue;
       if (_grid[p[0]][p[1]] == -1) continue;
       connected.add(key);
-      stack.addAll(_neighbors(p[0], p[1]));
+      stack.addAll(_around8(p[0], p[1])); // 매치와 동일하게 8방향 연결성
     }
     var dropped = 0;
     for (var r = 0; r < _maxRows; r++) {
