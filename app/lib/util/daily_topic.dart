@@ -548,11 +548,64 @@ const List<String> kTopics = [
   '함께 듣는 플레이리스트 표지',
 ];
 
+/// 주제에서 '큰 주제'(명사)를 뽑아낸다.
+/// 예: '당근 그리기' · '내가 제일 좋아하는 당근' · '귀엽게 변신한 당근' → 모두 '당근'.
+/// 변형 패턴에 안 맞는 단일 주제는 문장 그 자체가 하나의 큰 주제가 된다.
+String _bigTopicOf(String t) {
+  const suffix = ' 그리기';
+  if (t.endsWith(suffix)) return t.substring(0, t.length - suffix.length);
+  for (final p in const ['내가 제일 좋아하는 ', '지금 생각나는 ', '꿈에서 본 ', '귀엽게 변신한 ']) {
+    if (t.startsWith(p)) return t.substring(p.length);
+  }
+  return t;
+}
+
+/// 큰 주제별로 묶은 변형 그룹(리스트 등장 순서 유지). 한 번만 계산.
+List<List<String>>? _groupsCache;
+List<List<String>> _topicGroups() {
+  if (_groupsCache != null) return _groupsCache!;
+  final byBig = <String, List<String>>{};
+  final order = <String>[];
+  for (final t in kTopics) {
+    final big = _bigTopicOf(t);
+    final g = byBig[big];
+    if (g == null) {
+      byBig[big] = [t];
+      order.add(big);
+    } else {
+      g.add(t);
+    }
+  }
+  return _groupsCache = [for (final b in order) byBig[b]!];
+}
+
+int _gcd(int a, int b) => b == 0 ? a : _gcd(b, a % b);
+
+/// 그룹 수와 서로소인 보폭. 날짜가 하루 지날 때마다 그룹 인덱스가
+/// (보폭 mod 그룹수)만큼 이동하므로, 보폭이 0이 아니면 연속 두 날의 큰 주제는 절대 같지 않다.
+int _strideFor(int g) {
+  if (g <= 2) return 1;
+  var s = g ~/ 2;
+  while (s < g && _gcd(s, g) != 1) {
+    s++;
+  }
+  return (s > 0 && s < g) ? s : 1;
+}
+
+/// 날짜로부터 결정적으로 오늘의 주제를 계산한다(서버 없이도 두 사람이 같은 주제).
+/// 큰 주제(당근·라면 등)가 연속된 날에 반복되지 않도록 그룹을 보폭으로 순회한다.
 String topicForDate(DateTime d) {
+  final groups = _topicGroups();
+  final g = groups.length;
+  final day = DateTime(d.year, d.month, d.day).difference(DateTime(2020, 1, 1)).inDays;
+  final stride = _strideFor(g);
+  final gi = ((day * stride) % g + g) % g; // 연속일 → 항상 다른 큰 주제
+  final group = groups[gi];
+  // 같은 큰 주제 안에서 어떤 변형을 보여줄지는 날짜 해시로 결정(두 사람 동일).
   final key = '${d.year}-${d.month}-${d.day}';
   var h = 0;
   for (var i = 0; i < key.length; i++) {
     h = (h * 31 + key.codeUnitAt(i)) & 0x7fffffff;
   }
-  return kTopics[h % kTopics.length];
+  return group[h % group.length];
 }

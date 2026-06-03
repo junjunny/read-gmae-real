@@ -213,61 +213,77 @@ class _TetrisGameState extends State<TetrisGame> {
     return Scaffold(
       backgroundColor: const Color(0xFF12161D),
       appBar: AppBar(title: Text('테트리스 🧱   점수 $_score')),
-      body: Column(
-        children: [
-          if (_running)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Row(
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: Stack(
                 children: [
-                  const Text('홀드 ', style: TextStyle(fontWeight: FontWeight.bold)),
-                  _holdPreview(),
-                  const Spacer(),
-                  FilledButton.tonalIcon(
-                    onPressed: _holdUsed ? null : _holdPiece,
-                    icon: const Icon(Icons.swap_vert, size: 18),
-                    label: const Text('홀드'),
+                  Center(
+                    child: AspectRatio(
+                      aspectRatio: _cols / _rows,
+                      child: Container(
+                        margin: const EdgeInsets.all(8),
+                        color: Colors.black87,
+                        child: _buildGrid(),
+                      ),
+                    ),
                   ),
+                  // 홀드: 화면 위가 아니라 오른쪽 중하단에 배치
+                  if (_running)
+                    Positioned(
+                      right: 14,
+                      bottom: 16,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('홀드 ', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+                              _holdPreview(),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          FilledButton.tonalIcon(
+                            onPressed: _holdUsed ? null : _holdPiece,
+                            icon: const Icon(Icons.swap_vert, size: 18),
+                            label: const Text('홀드'),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
-          Expanded(
-            child: Center(
-              child: AspectRatio(
-                aspectRatio: _cols / _rows,
-                child: Container(
-                  margin: const EdgeInsets.all(8),
-                  color: Colors.black87,
-                  child: _buildGrid(),
+            if (!_running)
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  children: [
+                    if (_score > 0) Text('게임 오버! 점수: $_score 🎉', style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 6),
+                    FilledButton(onPressed: _reset, child: Text(_score > 0 ? '다시 하기' : '시작')),
+                  ],
                 ),
               ),
-            ),
-          ),
-          if (!_running)
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                children: [
-                  if (_score > 0) Text('게임 오버! 점수: $_score 🎉', style: const TextStyle(fontSize: 16)),
-                  const SizedBox(height: 6),
-                  FilledButton(onPressed: _reset, child: Text(_score > 0 ? '다시 하기' : '시작')),
-                ],
+            // 하단 4개 조작 버튼: 폰 제스처바와 안 겹치게 위로 올림
+            if (_running)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 44),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _ctrl(Icons.arrow_left, () => _move(-1)),
+                    _ctrl(Icons.rotate_right, _rotate),
+                    _ctrl(Icons.arrow_right, () => _move(1)),
+                    _ctrl(Icons.arrow_downward, _drop),
+                  ],
+                ),
               ),
-            ),
-          if (_running)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _ctrl(Icons.arrow_left, () => _move(-1)),
-                  _ctrl(Icons.rotate_right, _rotate),
-                  _ctrl(Icons.arrow_right, () => _move(1)),
-                  _ctrl(Icons.arrow_downward, _drop),
-                ],
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

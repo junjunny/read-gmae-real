@@ -21,7 +21,7 @@ class _Prize {
   const _Prize(this.name, this.pct, this.emoji);
 }
 
-const int kBoxCost = 1000;
+const int kBoxCost = 1516;
 // 확률 합 = 100.0% (내림차순). 비싼 상품은 희귀하게 유지.
 const List<_Prize> _kPrizes = [
   _Prize('꼭 안아주기 쿠폰 (5분)', 11, '💆'),
@@ -68,7 +68,7 @@ class _PrizeScreenState extends State<PrizeScreen> {
     try {
       final ok = await _svc.spend(uid, kBoxCost);
       if (!ok) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('포인트가 부족해요 (1,000P 필요)')));
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('포인트가 부족해요 (1,516P 필요)')));
         return;
       }
       final prize = _draw();
@@ -124,7 +124,7 @@ class _PrizeScreenState extends State<PrizeScreen> {
                     children: [
                       const Text('🎁 랜덤박스', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      const Text('1,000 포인트로 1개', style: TextStyle(color: Colors.grey)),
+                      const Text('1,516 포인트로 1개', style: TextStyle(color: Colors.grey)),
                       const SizedBox(height: 6),
                       Text('내 포인트: $mine', style: const TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 16),
@@ -135,7 +135,7 @@ class _PrizeScreenState extends State<PrizeScreen> {
                           icon: _opening
                               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                               : const Icon(Icons.card_giftcard),
-                          label: Text(canOpen ? '랜덤박스 열기 (-1,000P)' : '1,000P 모으면 열려요'),
+                          label: Text(canOpen ? '랜덤박스 열기 (-1,516P)' : '1,516P 모으면 열려요'),
                           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
                         ),
                       ),
@@ -187,19 +187,20 @@ class _PrizeScreenState extends State<PrizeScreen> {
         child: StreamBuilder<List<Map<String, dynamic>>>(
           stream: _svc.watchInventory(),
           builder: (context, snap) {
-            final items = snap.data ?? [];
+            // 사용 완료한 상품은 보유 목록에서 숨김(사용 기록은 달력에 남음).
+            final items = (snap.data ?? []).where((e) => e['used'] != true).toList();
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('🎒 보유 상품', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                const Text('당첨된 상품이 여기 쌓여요. 본인 상품은 직접 "사용 완료"를 눌러요.',
+                const Text('당첨된 상품이 여기 쌓여요. 본인 상품은 직접 "사용 완료"를 눌러요.\n사용 완료하면 목록에서 사라지고 달력에 기록돼요.',
                     style: TextStyle(fontSize: 11, color: Colors.grey)),
                 const SizedBox(height: 10),
                 if (items.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Text('아직 당첨된 상품이 없어요. 랜덤박스를 열어보세요! 🎁',
+                    child: Text('아직 보유한 상품이 없어요. 랜덤박스를 열어보세요! 🎁',
                         style: TextStyle(color: Colors.grey)),
                   )
                 else

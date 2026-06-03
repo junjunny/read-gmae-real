@@ -1,13 +1,14 @@
-// 16개 미니게임 자동 플레이 테스트.
+// 17개 미니게임 자동 플레이 테스트.
 // 각 게임 위젯을 띄워 시작 → 탭/드래그/시간경과로 실제 조작하고,
 // 예외 없이 동작하는지(테스트는 Flutter 에러 발생 시 자동 실패) + 점수/종료 콜백을 검증한다.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:grim_pingpong/games/apple_game.dart';
-import 'package:grim_pingpong/games/blast_game.dart';
+import 'package:grim_pingpong/games/avocado_game.dart';
 import 'package:grim_pingpong/games/breakout_game.dart';
 import 'package:grim_pingpong/games/bubble_game.dart';
+import 'package:grim_pingpong/games/dart_game.dart';
 import 'package:grim_pingpong/games/color_game.dart';
 import 'package:grim_pingpong/games/flappy_game.dart';
 import 'package:grim_pingpong/games/game_2048.dart';
@@ -56,7 +57,7 @@ void main() {
       await tester.tap(find.byType(GestureDetector).first, warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 250));
     }
-    expect(find.textContaining('나이프'), findsWidgets);
+    expect(find.textContaining('⭐'), findsWidgets); // 상단바에 점수만 표시
     await teardown(tester);
   });
 
@@ -230,24 +231,7 @@ void main() {
     await teardown(tester);
   });
 
-  testWidgets('⑮ 블록 블라스트: 조각을 보드로 드래그 배치 → 점수 증가', (tester) async {
-    await mount(tester, BlastGame(onFinish: (_) {}));
-    await tapStart(tester);
-    final tray = find.byKey(const ValueKey('blastTray0'));
-    final board = find.byType(GridView);
-    expect(tray, findsOneWidget);
-    expect(board, findsOneWidget);
-    final from = tester.getCenter(tray);
-    final to = tester.getCenter(board);
-    await tester.dragFrom(from, to - from);
-    await tester.pump();
-    // 점수 텍스트가 0보다 큰 값으로 갱신됐는지(조각이 놓였는지)
-    expect(find.textContaining('블록 블라스트'), findsOneWidget);
-    expect(find.text('블록 블라스트 🟦   0'), findsNothing);
-    await teardown(tester);
-  });
-
-  testWidgets('⑯ 사과게임: 드래그 선택 + 2분 후 종료', (tester) async {
+  testWidgets('⑮ 사과게임: 드래그 선택 + 2분 후 종료', (tester) async {
     var finished = false;
     await mount(tester, AppleGame(onFinish: (s) => finished = true));
     await tapStart(tester);
@@ -257,6 +241,34 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 122));
     expect(finished, isTrue);
+    await teardown(tester);
+  });
+
+  testWidgets('⑯ 다트 게임: 시작→10발 던지기 → 종료', (tester) async {
+    var finished = false;
+    await mount(tester, DartGame(onFinish: (s) => finished = true));
+    await tester.tap(find.byType(GestureDetector).first); // 시작
+    await tester.pump();
+    // 10발 던지기(각 던지기 후 비행+장전 시간 경과)
+    for (var i = 0; i < 12 && !finished; i++) {
+      await tester.tap(find.byType(GestureDetector).first, warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 600));
+    }
+    expect(finished, isTrue);
+    await teardown(tester);
+  });
+
+  testWidgets('⑰ 아보카도 점프: 시작→좌우 조작 + 자동 점프 진행', (tester) async {
+    await mount(tester, AvocadoGame(onFinish: (s) {}));
+    await tapStart(tester);
+    // 왼쪽을 길게 눌러 가로 이동(꾹 누르고 있는 조작) → 자동 점프 진행
+    final left = tester.getCenter(find.byType(GestureDetector).first);
+    final g = await tester.startGesture(left);
+    await tester.pump(const Duration(seconds: 2));
+    await g.up();
+    await tester.pump(const Duration(seconds: 1));
+    // 크래시 없이 진행(상단바에 점수 표시 존재)
+    expect(find.textContaining('🥑'), findsWidgets);
     await teardown(tester);
   });
 }

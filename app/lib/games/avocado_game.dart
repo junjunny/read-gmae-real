@@ -1,0 +1,502 @@
+import 'dart:async';
+import 'dart:math';
+
+import 'package:flutter/material.dart';
+
+import 'game_fx.dart';
+
+/// 아보카도 점프 🥑: 자동으로 통통 튀며 위로! 좌/우를 누르고 있으면 그 방향으로 이동.
+/// 플랫폼을 밟으면 자동 점프. 화면 밖으로 떨어지면 끝. 높이 올라갈수록 점수.
+/// 🟩 일반 · 🟨 흔들 · 🟥 부서짐(한 번 밟으면) · 🌀 스프링(높이 점프) · ⭐별=3초 무적+자동상승.
+class AvocadoGame extends StatefulWidget {
+  final void Function(int score) onFinish;
+  const AvocadoGame({super.key, required this.onFinish});
+  @override
+  State<AvocadoGame> createState() => _AvocadoGameState();
+}
+
+const int _pNormal = 0, _pMoving = 1, _pBreak = 2, _pSpring = 3;
+
+class _Plat {
+  double x; // 현재 중심 x(0~1)
+  final double baseX;
+  final double worldY;
+  final int type;
+  final double phase;
+  bool broken = false;
+  double brokenAge = 0;
+  _Plat(this.baseX, this.worldY, this.type, this.phase) : x = baseX;
+}
+
+class _Star {
+  double x;
+  final double worldY;
+  bool taken = false;
+  _Star(this.x, this.worldY);
+}
+
+class _AvocadoGameState extends State<AvocadoGame> {
+  // 물리(세로는 화면높이 H 비율, 가로는 폭 W 비율 단위)
+  static const double _anchor = 0.42; // 최고점일 때 아보카도가 머무는 화면 비율
+  static const double _r = 0.05; // 아보카도 반지름(H)
+  static const double _gravity = 0.0016;
+  static const double _jumpV = -0.0300;
+  static const double _springV = -0.0520;
+  static const double _platHalf = 0.11; // 플랫폼 절반 폭(W)
+
+  final _rng = Random();
+  double _x = 0.5, _vx = 0; // 가로 위치/속도
+  double _ay = 0, _vy = _jumpV; // 아보카도 worldY / 세로속도
+  double _camY = 0; // 카메라(최고점 추적, 작을수록 위)
+  double _topWorldY = 0; // 가장 높은 플랫폼 worldY
+  int _dir = 0; // -1 왼쪽, +1 오른쪽, 0 정지
+  int _invincible = 0;
+  int _frame = 0;
+  int _score = 0;
+  bool _running = false;
+  Timer? _loop;
+
+  final List<_Plat> _platforms = [];
+  final List<_Star> _stars = [];
+
+  double _height() => -_camY; // 올라간 높이(H)
+
+  void _start() {
+    _x = 0.5;
+    _vx = 0;
+    _ay = 0;
+    _vy = _jumpV;
+    _camY = 0;
+    _dir = 0;
+    _invincible = 0;
+    _frame = 0;
+    _score = 0;
+    _platforms.clear();
+    _stars.clear();
+    // 시작 발판(바로 아래) + 위로 펼치기
+    _platforms.add(_Plat(0.5, 0.10, _pNormal, 0));
+    _topWorldY = 0.10;
+    _fillAbove();
+    _running = true;
+    _loop?.cancel();
+    _loop = Timer.periodic(const Duration(milliseconds: 16), (_) => _tick());
+    setState(() {});
+  }
+
+  // 난이도: 높이 올라갈수록 플랫폼 간격이 넓어진다(점프 가능 범위 내).
+  double _gap() => 0.15 + min(0.085, _height() * 0.004);
+
+  int _pickType() {
+    final h = _height();
+    final roll = _rng.nextDouble();
+    const spring = 0.06;
+    final moving = h > 3 ? min(0.22, 0.05 + h * 0.012) : 0.0;
+    final brk = h > 5 ? min(0.24, 0.04 + (h - 5) * 0.012) : 0.0;
+    if (roll < spring) return _pSpring;
+    if (roll < spring + moving) return _pMoving;
+    if (roll < spring + moving + brk) return _pBreak;
+    return _pNormal;
+  }
+
+  void _fillAbove() {
+    while (_topWorldY > _camY - 1.4) {
+      final ny = _topWorldY - _gap();
+      final type = _pickType();
+      final x = 0.12 + _rng.nextDouble() * 0.76;
+      _platforms.add(_Plat(x, ny, type, _rng.nextDouble() * 2 * pi));
+      // 가끔 별(무적) 등장 — 플랫폼 위쪽 빈 공간
+      if (_rng.nextInt(100) < 7) {
+        _stars.add(_Star(0.12 + _rng.nextDouble() * 0.76, ny - _gap() * 0.5));
+      }
+      _topWorldY = ny;
+    }
+  }
+
+  void _tick() {
+    if (!_running) return;
+    _frame++;
+
+    // 가로 이동(부드럽게 목표 속도로 수렴) + 화면 양끝 wrap
+    const moveSpeed = 0.017;
+    _vx += (_dir * moveSpeed - _vx) * 0.25;
+    _x += _vx;
+    if (_x < 0) _x += 1;
+    if (_x > 1) _x -= 1;
+
+    // 흔들리는 플랫폼 위치 갱신
+    for (final p in _platforms) {
+      if (p.type == _pMoving) {
+        p.x = (p.baseX + 0.16 * sin(_frame * 0.03 + p.phase)).clamp(0.06, 0.94);
+      }
+      if (p.broken) p.brokenAge += 1;
+    }
+    _platforms.removeWhere((p) => p.broken && p.brokenAge > 16);
+
+    if (_invincible > 0) {
+      _invincible--;
+      _vy = -0.034; // 자동 상승
+      _ay += _vy;
+    } else {
+      final prevFoot = _ay + _r;
+      _vy += _gravity;
+      if (_vy > 0.05) _vy = 0.05;
+      _ay += _vy;
+      final foot = _ay + _r;
+      if (_vy > 0) {
+        for (final p in _platforms) {
+          if (p.broken) continue;
+          final top = p.worldY;
+          if (prevFoot <= top && foot >= top) {
+            var dx = (_x - p.x).abs();
+            dx = min(dx, 1 - dx); // wrap 고려
+            if (dx < _platHalf + 0.055) {
+              _ay = top - _r;
+              _vy = p.type == _pSpring ? _springV : _jumpV;
+              if (p.type == _pBreak) p.broken = true; // 한 번 밟으면 부서짐
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // 카메라(최고점만 따라 위로)
+    if (_ay < _camY) _camY = _ay;
+    final sc = (_height() * 100).round();
+    if (sc > _score) _score = sc;
+
+    // 별 획득
+    for (final s in _stars) {
+      if (s.taken) continue;
+      var dx = (_x - s.x).abs();
+      dx = min(dx, 1 - dx);
+      if (dx < 0.08 && (_ay - s.worldY).abs() < 0.06) {
+        s.taken = true;
+        _invincible = 188; // 약 3초
+      }
+    }
+    _stars.removeWhere((s) => s.taken || s.worldY > _camY + 0.9);
+    _platforms.removeWhere((p) => p.worldY > _camY + 0.9);
+    _fillAbove();
+
+    // 추락 판정(화면 아래로 벗어남)
+    if (_invincible == 0 && (_ay - _camY) > (1.06 - _anchor)) {
+      _end();
+      return;
+    }
+    setState(() {});
+  }
+
+  void _end() {
+    _running = false;
+    _loop?.cancel();
+    setState(() {});
+    widget.onFinish(_score);
+  }
+
+  @override
+  void dispose() {
+    _loop?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('🥑 $_score${_invincible > 0 ? '   ⭐무적' : ''}')),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: bgGradient(const [Color(0xFFE8F8E0), Color(0xFFB7E4C7)]),
+              child: CustomPaint(
+                painter: _AvocadoPainter(
+                  x: _x,
+                  ay: _ay,
+                  vy: _vy,
+                  vx: _vx,
+                  camY: _camY,
+                  anchor: _anchor,
+                  r: _r,
+                  platforms: _platforms,
+                  stars: _stars,
+                  invincible: _invincible,
+                  frame: _frame,
+                  running: _running,
+                ),
+              ),
+            ),
+          ),
+          // 좌/우 조작(누르고 있으면 그 방향으로 이동)
+          if (_running)
+            Positioned.fill(
+              child: Row(
+                children: [
+                  Expanded(child: _steer(-1, Alignment.bottomLeft, Icons.chevron_left)),
+                  Expanded(child: _steer(1, Alignment.bottomRight, Icons.chevron_right)),
+                ],
+              ),
+            ),
+          if (!_running)
+            Center(
+              child: GestureDetector(
+                onTap: _start,
+                child: PopPanel(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _score > 0
+                            ? '게임 오버!  높이 $_score 🥑'
+                            : '아보카도가 자동으로 통통!\n좌/우를 눌러(꾹) 방향을 잡아\n발판을 밟고 최대한 높이 올라가요\n⭐별=3초 무적+자동상승',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 17, height: 1.4),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton(onPressed: _start, child: Text(_score > 0 ? '다시' : '시작')),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _steer(int dir, Alignment align, IconData icon) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => _dir = dir,
+      onTapUp: (_) => _dir = 0,
+      onTapCancel: () => _dir = 0,
+      child: Align(
+        alignment: align,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Opacity(
+            opacity: 0.35,
+            child: CircleAvatar(
+              radius: 26,
+              backgroundColor: const Color(0xFF2E7D32),
+              child: Icon(icon, color: Colors.white, size: 34),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AvocadoPainter extends CustomPainter {
+  final double x, ay, vy, vx, camY, anchor, r;
+  final List<_Plat> platforms;
+  final List<_Star> stars;
+  final int invincible, frame;
+  final bool running;
+  _AvocadoPainter({
+    required this.x,
+    required this.ay,
+    required this.vy,
+    required this.vx,
+    required this.camY,
+    required this.anchor,
+    required this.r,
+    required this.platforms,
+    required this.stars,
+    required this.invincible,
+    required this.frame,
+    required this.running,
+  });
+
+  double _sy(double worldY, double h) => (anchor + (worldY - camY)) * h;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+
+    // 플랫폼
+    for (final p in platforms) {
+      final cx = p.x * w;
+      final cy = _sy(p.worldY, h);
+      if (cy < -40 || cy > h + 40) continue;
+      _drawPlatform(canvas, p, cx, cy, w);
+    }
+
+    // 별
+    for (final s in stars) {
+      if (s.taken) continue;
+      final cx = s.x * w, cy = _sy(s.worldY, h);
+      if (cy < -30 || cy > h + 30) continue;
+      _drawStar(canvas, Offset(cx, cy), w * 0.045, const Color(0xFFFFD54F));
+    }
+
+    // 아보카도
+    if (running) {
+      final cx = x * w;
+      final cy = _sy(ay, h);
+      _drawAvocado(canvas, Offset(cx, cy), w * 0.13);
+    }
+  }
+
+  void _drawPlatform(Canvas canvas, _Plat p, double cx, double cy, double w) {
+    final pw = 0.22 * w, ph = pw * 0.26;
+    Color base;
+    switch (p.type) {
+      case _pMoving:
+        base = const Color(0xFFFFD54F);
+        break;
+      case _pBreak:
+        base = const Color(0xFFEF9A9A);
+        break;
+      case _pSpring:
+        base = const Color(0xFF81C784);
+        break;
+      default:
+        base = const Color(0xFF66BB6A);
+    }
+
+    if (p.broken) {
+      // 부서지는 연출: 두 조각이 벌어지며 떨어짐 + 페이드
+      final t = (p.brokenAge / 16).clamp(0.0, 1.0);
+      final a = 1 - t;
+      final drop = t * 24;
+      for (final s in const [-1, 1]) {
+        final rect = Rect.fromCenter(
+            center: Offset(cx + s * t * 22, cy + drop), width: pw / 2 - 3, height: ph);
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(rect, const Radius.circular(7)),
+            Paint()..color = base.withValues(alpha: a));
+      }
+      return;
+    }
+
+    final rect = Rect.fromCenter(center: Offset(cx, cy + ph / 2), width: pw, height: ph);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(rect.shift(const Offset(0, 2)), const Radius.circular(9)),
+        Paint()..color = Colors.black.withValues(alpha: 0.12));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(9)),
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color.lerp(base, Colors.white, 0.4)!, base, Color.lerp(base, Colors.black, 0.12)!],
+          ).createShader(rect));
+
+    if (p.type == _pSpring) {
+      // 스프링: 가운데 작은 코일
+      final sx = cx, sy = cy;
+      final coil = Paint()
+        ..color = const Color(0xFF455A64)
+        ..strokeWidth = 2.4
+        ..style = PaintingStyle.stroke;
+      final path = Path();
+      for (var i = 0; i <= 12; i++) {
+        final yy = sy - i * 1.0;
+        final xx = sx + (i.isEven ? -6 : 6);
+        if (i == 0) {
+          path.moveTo(xx, yy);
+        } else {
+          path.lineTo(xx, yy);
+        }
+      }
+      canvas.drawPath(path, coil);
+    } else if (p.type == _pBreak) {
+      // 금(크랙) 표시
+      final crack = Paint()
+        ..color = Colors.black.withValues(alpha: 0.25)
+        ..strokeWidth = 1.6;
+      canvas.drawLine(Offset(cx - 6, cy + 3), Offset(cx, cy + ph - 3), crack);
+      canvas.drawLine(Offset(cx + 8, cy + 3), Offset(cx + 3, cy + ph - 3), crack);
+    }
+  }
+
+  // 귀여운 아보카도(원 2개로 부드러운 실루엣 + 씨앗 + 눈/미소). vy로 살짝 늘어남.
+  void _drawAvocado(Canvas canvas, Offset c, double size) {
+    final stretch = (1 + (vy * -3.5)).clamp(0.82, 1.18); // 점프 중 길쭉, 낙하 시 통통
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    canvas.scale(1 / stretch.clamp(0.85, 1.15), stretch);
+    final tilt = (vx * 6).clamp(-0.25, 0.25);
+    canvas.rotate(tilt);
+
+    final R = size * 0.5;
+    final bottom = Offset(0, R * 0.18);
+    final top = Offset(0, -R * 0.75);
+    final topR = R * 0.62;
+
+    // 그림자
+    canvas.drawOval(
+        Rect.fromCenter(center: Offset(0, R + 6), width: size * 0.7, height: size * 0.2),
+        Paint()..color = Colors.black.withValues(alpha: 0.12));
+
+    // 껍질(진한 초록)
+    final skin = Paint()..color = const Color(0xFF386641);
+    canvas.drawCircle(bottom, R, skin);
+    canvas.drawCircle(top, topR, skin);
+
+    // 과육(연두)
+    final flesh = Paint()..color = const Color(0xFFC9E4A6);
+    canvas.drawCircle(bottom, R * 0.74, flesh);
+    canvas.drawCircle(top, topR * 0.7, flesh);
+
+    // 씨앗
+    final pit = Paint()..color = const Color(0xFF8D5524);
+    canvas.drawCircle(bottom, R * 0.34, pit);
+    canvas.drawCircle(bottom + Offset(-R * 0.1, -R * 0.1), R * 0.12, Paint()..color = const Color(0xFFA9714B));
+
+    // 눈(방향에 따라 동공 이동)
+    final eyeDx = (vx * 18).clamp(-3.0, 3.0);
+    for (final s in const [-1.0, 1.0]) {
+      final ec = Offset(s * topR * 0.42, top.dy - topR * 0.05);
+      canvas.drawCircle(ec, topR * 0.26, Paint()..color = Colors.white);
+      canvas.drawCircle(ec + Offset(eyeDx, 1), topR * 0.12, Paint()..color = const Color(0xFF222222));
+    }
+    // 미소
+    final smile = Paint()
+      ..color = const Color(0xFF3A2A1A)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(Rect.fromCenter(center: Offset(0, top.dy + topR * 0.32), width: topR * 0.7, height: topR * 0.5),
+        0.15 * pi, 0.7 * pi, false, smile);
+    // 볼터치
+    final blush = Paint()..color = const Color(0x55FF8A80);
+    canvas.drawCircle(Offset(-topR * 0.6, top.dy + topR * 0.2), topR * 0.16, blush);
+    canvas.drawCircle(Offset(topR * 0.6, top.dy + topR * 0.2), topR * 0.16, blush);
+
+    canvas.restore();
+
+    // 무적 글로우(무지개 링 + 반짝임)
+    if (invincible > 0) {
+      final hue = (frame * 6) % 360;
+      final ring = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..color = HSVColor.fromAHSV(0.9, hue.toDouble(), 0.7, 1).toColor();
+      canvas.drawCircle(c, size * 0.62, ring);
+    }
+  }
+
+  void _drawStar(Canvas canvas, Offset c, double rad, Color color) {
+    final path = Path();
+    for (var i = 0; i < 10; i++) {
+      final ang = -pi / 2 + i * pi / 5;
+      final rr = i.isEven ? rad : rad * 0.45;
+      final pt = c + Offset(cos(ang) * rr, sin(ang) * rr);
+      if (i == 0) {
+        path.moveTo(pt.dx, pt.dy);
+      } else {
+        path.lineTo(pt.dx, pt.dy);
+      }
+    }
+    path.close();
+    canvas.drawPath(path, Paint()..color = Colors.black.withValues(alpha: 0.15)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+    canvas.drawPath(path, Paint()..color = color);
+    canvas.drawCircle(c, rad * 0.3, Paint()..color = Colors.white.withValues(alpha: 0.7));
+  }
+
+  @override
+  bool shouldRepaint(covariant _AvocadoPainter old) => true;
+}

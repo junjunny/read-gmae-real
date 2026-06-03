@@ -7,10 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import '../app_state.dart';
 import '../services/auth_service.dart';
 import '../services/points_service.dart';
-import '../services/push_service.dart';
 import '../services/session_prefs.dart';
 import '../util/dday.dart';
-import '../util/users.dart';
 import 'drawing_today.dart';
 import 'menu_recommend.dart';
 import 'minigames_screen.dart';
@@ -61,46 +59,6 @@ class _HomeDashboardState extends State<HomeDashboard> {
 
   void _go(Widget s) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => s));
 
-  Future<void> _enablePush() async {
-    final msg = await PushService.enable();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg == 'ok' ? '알림이 켜졌어요! 🔔' : msg), duration: const Duration(seconds: 5)),
-    );
-  }
-
-  Future<void> _poke() async {
-    final myId = SessionPrefs.userId ?? '0421';
-    final toId = myId == '0421' ? '0118' : '0421';
-    final ctrl = TextEditingController();
-    final send = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text('💗 ${nickOf(toId)}에게 콕 찌르기'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: ctrl, autofocus: true, maxLength: 50, decoration: const InputDecoration(hintText: '예: 얼른 그림 그려! 🎨', border: OutlineInputBorder())),
-            const Text('상대 알림으로 전송돼요 (무료 방식이라 ~10분 내 도착)', style: TextStyle(fontSize: 11, color: Colors.grey)),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('보내기')),
-        ],
-      ),
-    );
-    if (send == true) {
-      final text = ctrl.text.trim().isEmpty ? '콕! 👈' : ctrl.text.trim();
-      try {
-        await PointsService().sendPoke(myId, toId, text);
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('콕! 보냈어요 💗 (~10분 내 도착)')));
-      } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('전송 실패: $e')));
-      }
-    }
-  }
-
   static Uint8List? _decode(String? b64) {
     if (b64 == null || b64.isEmpty) return null;
     try {
@@ -134,27 +92,6 @@ class _HomeDashboardState extends State<HomeDashboard> {
         children: [
           _header(),
           if (firebaseReady) ...[const SizedBox(height: 12), _quoteCard()],
-          const SizedBox(height: 12),
-          if (firebaseReady)
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _enablePush,
-                    icon: const Icon(Icons.notifications_active, size: 18),
-                    label: const Text('알림 켜기'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _poke,
-                    icon: const Icon(Icons.touch_app, size: 18),
-                    label: const Text('콕 찌르기'),
-                  ),
-                ),
-              ],
-            ),
           const SizedBox(height: 16),
           GridView.count(
             crossAxisCount: 2,

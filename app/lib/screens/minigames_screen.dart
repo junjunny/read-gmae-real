@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../games/apple_game.dart';
-import '../games/blast_game.dart';
+import '../games/avocado_game.dart';
 import '../games/breakout_game.dart';
 import '../games/bubble_game.dart';
 import '../games/color_game.dart';
+import '../games/dart_game.dart';
 import '../games/flappy_game.dart';
 import '../games/game_2048.dart';
 import '../games/knife_game.dart';
@@ -31,6 +32,8 @@ class _GameDef {
 // ⚠️ 게임 내용이 바뀐 종목은 key 뒤에 버전(2)을 붙여 월드레코드를 새로 시작합니다.
 //    (내용이 그대로인 순서터치·2048만 기존 key 유지 → 기록 보존)
 final List<_GameDef> _kGames = [
+  _GameDef('dart', '다트 게임 🎯', '흔들리는 과녁 중앙 노리기! 10발·🔥불스아이 콤보', (f) => DartGame(onFinish: f)),
+  _GameDef('avocado', '아보카도 점프 🥑', '발판 밟고 높이! 🌀스프링·🟥부서짐·⭐무적', (f) => AvocadoGame(onFinish: f)),
   _GameDef('knife', '나이프 던지기 🔪', '회전 통나무에 칼 꽂기! 부딪히면 끝·🍎보너스', (f) => KnifeGame(onFinish: f)),
   _GameDef('reaction2', '반응속도 🟢', '초록 되면 빨리! 빨강 누르면 페널티·🔥콤보', (f) => ReactionGame(onFinish: f)),
   _GameDef('schulte', '순서 터치 🔢', '1→25 순서대로 빨리', (f) => SchulteGame(onFinish: f)),
@@ -45,7 +48,6 @@ final List<_GameDef> _kGames = [
   _GameDef('flappy', '플래피버드 🐦', '탭해서 파이프 통과 · ⭐무적 · ↔️간격', (f) => FlappyGame(onFinish: f)),
   _GameDef('breakout', '벽돌깨기 🧱', '공 튕겨 벽돌! 💥x2 · ➕분열 · 🧲자석', (f) => BreakoutGame(onFinish: f)),
   _GameDef('bubble', '버블슈터 🫧', '같은 색 3개+ 매치 · 🌈레인보우(닿는 색 다 제거)', (f) => BubbleGame(onFinish: f)),
-  _GameDef('blast', '블록 블라스트 🟦', '줄 채우기! 🔥2줄 x1.5 · 🌟와일드', (f) => BlastGame(onFinish: f)),
   _GameDef('apple', '사과게임 🍎', '드래그로 합 10! 👑황금 · ⏰+10초', (f) => AppleGame(onFinish: f)),
 ];
 

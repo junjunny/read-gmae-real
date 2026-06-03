@@ -144,7 +144,7 @@ class _KnifeGameState extends State<KnifeGame> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('나이프 던지기 🔪   스테이지 $_stage   ⭐$_score')),
+      appBar: AppBar(title: Text('⭐ $_score')),
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _tap,
