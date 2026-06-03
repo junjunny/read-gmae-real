@@ -48,7 +48,7 @@ final List<_GameDef> _kGames = [
   _GameDef('stack2', '블록 쌓기 🏗️', '정확히! ✨퍼펙트 보너스', (f) => StackGame(onFinish: f)),
   _GameDef('flappy', '플래피버드 🐦', '탭해서 파이프 통과 · ⭐무적 · ↔️간격', (f) => FlappyGame(onFinish: f)),
   _GameDef('breakout', '벽돌깨기 🧱', '공 튕겨 벽돌! 💥x2 · ➕분열 · 🧲자석', (f) => BreakoutGame(onFinish: f)),
-  _GameDef('bubble', '버블슈터 🫧', '같은 색 3개+ 매치 · 🌈레인보우(닿는 색 다 제거)', (f) => BubbleGame(onFinish: f)),
+  _GameDef('bubble2', '버블슈터 🫧', '같은 색 3개+ 매치 · 🌈레인보우(닿는 색 다 제거)', (f) => BubbleGame(onFinish: f)),
   _GameDef('apple', '사과게임 🍎', '드래그로 합 10! 👑황금 · ⏰+10초', (f) => AppleGame(onFinish: f)),
 ];
 

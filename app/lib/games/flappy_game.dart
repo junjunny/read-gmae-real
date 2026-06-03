@@ -255,10 +255,7 @@ class _FlappyGameState extends State<FlappyGame> {
                     opacity: _invincible > 0 && (_frame ~/ 5).isEven ? 0.4 : 1,
                     child: Transform.rotate(
                       angle: (_vy * 16).clamp(-0.5, 1.0), // 오를 땐 위로, 떨어질 땐 아래로 부드럽게 기울기
-                      child: Transform.scale(
-                        scaleX: -1, // 🐦는 기본 왼쪽을 보므로 뒤집어 진행 방향(오른쪽)을 보게
-                        child: const FittedBox(child: Text('🐦', style: TextStyle(fontSize: 30))),
-                      ),
+                      child: CustomPaint(painter: _BirdPainter(flap: (_frame ~/ 6).isEven)),
                     ),
                   ),
                 ),
@@ -282,4 +279,56 @@ class _FlappyGameState extends State<FlappyGame> {
       ),
     );
   }
+}
+
+/// 귀여운 아기새(오른쪽을 보는 둥근 병아리). 날개는 flap 으로 퍼덕인다. 벡터라 가볍다.
+class _BirdPainter extends CustomPainter {
+  final bool flap;
+  _BirdPainter({required this.flap});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final c = Offset(w * 0.5, h * 0.52);
+    final r = w * 0.4;
+
+    // 그림자
+    canvas.drawCircle(c + Offset(0, r * 0.1), r, Paint()..color = Colors.black.withValues(alpha: 0.08));
+    // 몸통
+    canvas.drawCircle(c, r, Paint()..color = const Color(0xFFFFD54F));
+    // 배(연한)
+    canvas.drawCircle(c + Offset(r * 0.05, r * 0.22), r * 0.7, Paint()..color = const Color(0xFFFFF59D));
+    // 꼬리(왼쪽)
+    canvas.drawPath(
+        Path()
+          ..moveTo(c.dx - r * 0.8, c.dy)
+          ..lineTo(c.dx - r * 1.3, c.dy - r * 0.25)
+          ..lineTo(c.dx - r * 1.3, c.dy + r * 0.25)
+          ..close(),
+        Paint()..color = const Color(0xFFFFB300));
+    // 날개(퍼덕임)
+    canvas.save();
+    canvas.translate(c.dx - r * 0.05, c.dy - r * 0.05);
+    canvas.rotate(flap ? -0.5 : -0.05);
+    canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: r * 1.0, height: r * 0.6), Paint()..color = const Color(0xFFFFB300));
+    canvas.restore();
+    // 부리(오른쪽, 주황 삼각형)
+    canvas.drawPath(
+        Path()
+          ..moveTo(c.dx + r * 0.82, c.dy - r * 0.06)
+          ..lineTo(c.dx + r * 1.22, c.dy + r * 0.04)
+          ..lineTo(c.dx + r * 0.82, c.dy + r * 0.2)
+          ..close(),
+        Paint()..color = const Color(0xFFFF8F00));
+    // 눈(크게 → 귀엽게)
+    final eye = Offset(c.dx + r * 0.4, c.dy - r * 0.28);
+    canvas.drawCircle(eye, r * 0.27, Paint()..color = Colors.white);
+    canvas.drawCircle(eye + Offset(r * 0.07, 0), r * 0.14, Paint()..color = const Color(0xFF333333));
+    canvas.drawCircle(eye + Offset(r * 0.13, -r * 0.05), r * 0.05, Paint()..color = Colors.white);
+    // 볼터치
+    canvas.drawCircle(c + Offset(r * 0.5, r * 0.28), r * 0.13, Paint()..color = const Color(0x55FF8A80));
+  }
+
+  @override
+  bool shouldRepaint(covariant _BirdPainter old) => old.flap != flap;
 }
