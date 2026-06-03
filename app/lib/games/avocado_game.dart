@@ -543,6 +543,96 @@ class _AvocadoPainter extends CustomPainter {
             ..color = const Color(0xFFFFD180).withValues(alpha: pl));
       canvas.restore();
     }
+
+    // 7000+: 별똥별(코멧)이 천천히 가로지름
+    final c7 = ((score - 7000) / 200).clamp(0.0, 1.0);
+    if (c7 > 0.01) {
+      _drawComet(canvas, w, h, 0, c7);
+      _drawComet(canvas, w, h, 1, c7);
+    }
+
+    // 9000+: 성운(은은한 갤럭시 안개)
+    final n9 = ((score - 9000) / 200).clamp(0.0, 1.0);
+    if (n9 > 0.01) {
+      _nebula(canvas, Offset(w * 0.30, h * 0.58), w * 0.34, const Color(0xFF7E57C2), n9);
+      _nebula(canvas, Offset(w * 0.72, h * 0.44), w * 0.30, const Color(0xFFEC407A), n9 * 0.85);
+      _nebula(canvas, Offset(w * 0.55, h * 0.72), w * 0.30, const Color(0xFF26C6DA), n9 * 0.7);
+    }
+
+    // 12000+: 커다란 토성(고리 행성)
+    final s12 = ((score - 12000) / 200).clamp(0.0, 1.0);
+    if (s12 > 0.01) {
+      _drawSaturn(canvas, Offset(w * 0.74, h * 0.70), w * 0.12, s12);
+    }
+
+    // 15000+: 하트 별자리(커플 피날레 ✨)
+    final h15 = ((score - 15000) / 200).clamp(0.0, 1.0);
+    if (h15 > 0.01) {
+      _drawHeart(canvas, w, h, h15);
+    }
+  }
+
+  // 별똥별: 주기적으로 대각선으로 흐른다(프레임 기반, 가볍다).
+  void _drawComet(Canvas canvas, double w, double h, int idx, double alpha) {
+    const period = 240;
+    final phase = ((g._frame + idx * 120) % period) / period; // 0~1
+    final x = (-0.15 + phase * 1.35) * w;
+    final y = (0.10 + idx * 0.22 + phase * 0.18) * h;
+    final head = Offset(x, y);
+    final tail = head - Offset(w * 0.13, w * 0.06);
+    final fade = phase < 0.85 ? 1.0 : (1 - phase) / 0.15;
+    final a = alpha * fade.clamp(0.0, 1.0);
+    canvas.drawLine(
+        tail,
+        head,
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.5 * a)
+          ..strokeWidth = 2
+          ..strokeCap = StrokeCap.round);
+    canvas.drawCircle(head, 2.6, Paint()..color = Colors.white.withValues(alpha: 0.95 * a));
+  }
+
+  // 성운: 셰이더/블러 없이 원 3겹으로 부드러운 안개 느낌.
+  void _nebula(Canvas canvas, Offset c, double r, Color color, double alpha) {
+    canvas.drawCircle(c, r, Paint()..color = color.withValues(alpha: 0.10 * alpha));
+    canvas.drawCircle(c, r * 0.66, Paint()..color = color.withValues(alpha: 0.14 * alpha));
+    canvas.drawCircle(c, r * 0.36, Paint()..color = color.withValues(alpha: 0.20 * alpha));
+  }
+
+  void _drawSaturn(Canvas canvas, Offset c, double r, double alpha) {
+    canvas.drawCircle(c, r, Paint()..color = const Color(0xFFFFCC80).withValues(alpha: alpha));
+    canvas.drawCircle(c + Offset(-r * 0.3, -r * 0.3), r * 0.38, Paint()..color = Colors.white.withValues(alpha: 0.18 * alpha));
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    canvas.rotate(-0.5);
+    canvas.drawOval(
+        Rect.fromCenter(center: Offset.zero, width: r * 3.6, height: r * 1.1),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = r * 0.16
+          ..color = const Color(0xFFFFE0B2).withValues(alpha: alpha));
+    canvas.restore();
+  }
+
+  // 하트 별자리: 점 8개 + 연결선(파라메트릭 하트).
+  void _drawHeart(Canvas canvas, double w, double h, double alpha) {
+    final cx = w * 0.5, cy = h * 0.17, s = w * 0.085;
+    final pts = <Offset>[];
+    for (var i = 0; i < 8; i++) {
+      final tt = i / 8 * 2 * pi;
+      final hx = 16 * pow(sin(tt), 3);
+      final hy = 13 * cos(tt) - 5 * cos(2 * tt) - 2 * cos(3 * tt) - cos(4 * tt);
+      pts.add(Offset(cx + (hx / 16.0) * s, cy - (hy / 16.0) * s));
+    }
+    final line = Paint()
+      ..color = const Color(0xFFFFD1DC).withValues(alpha: 0.5 * alpha)
+      ..strokeWidth = 1.3;
+    for (var i = 0; i < pts.length; i++) {
+      canvas.drawLine(pts[i], pts[(i + 1) % pts.length], line);
+    }
+    for (final p in pts) {
+      canvas.drawCircle(p, 2.4, Paint()..color = Colors.white.withValues(alpha: 0.95 * alpha));
+    }
   }
 
   void _drawCloud(Canvas canvas, Offset c, double s, double alpha) {
