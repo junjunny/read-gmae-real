@@ -31,6 +31,18 @@ class _Item {
   _Item(this.x, this.y, this.type);
 }
 
+// 10점마다 바뀌는 하늘 테마(맑음→노을→밤→…). 색만 바꾸므로 가볍다.
+const List<List<Color>> _skies = [
+  [Color(0xFFB3E5FC), Color(0xFF4FC3F7)], // 맑은 낮
+  [Color(0xFFFFE0B2), Color(0xFFFFB74D)], // 아침
+  [Color(0xFFFFCCBC), Color(0xFFFF8A65)], // 석양
+  [Color(0xFFF8BBD0), Color(0xFFCE93D8)], // 분홍노을
+  [Color(0xFFB39DDB), Color(0xFF7E57C2)], // 보랏빛 저녁
+  [Color(0xFF5C6BC0), Color(0xFF283593)], // 푸른 밤
+  [Color(0xFF26323E), Color(0xFF0D1B3E)], // 깊은 밤
+  [Color(0xFF80DEEA), Color(0xFF26C6DA)], // 청량
+];
+
 class _FlappyGameState extends State<FlappyGame> {
   static const double _birdX = 0.28;
   static const double _birdR = 0.04;
@@ -168,12 +180,15 @@ class _FlappyGameState extends State<FlappyGame> {
         behavior: HitTestBehavior.opaque,
         child: LayoutBuilder(builder: (context, box) {
           final w = box.maxWidth, h = box.maxHeight;
-          return Container(
-            decoration: const BoxDecoration(
+          final sky = _skies[(_score ~/ 10) % _skies.length];
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 700),
+            curve: Curves.easeInOut,
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFFB3E5FC), Color(0xFF4FC3F7)],
+                colors: sky,
               ),
             ),
             child: Stack(

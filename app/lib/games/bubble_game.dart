@@ -102,7 +102,7 @@ class _BubbleGameState extends State<BubbleGame> {
     final dy = ty - (_h - _rad);
     final len = sqrt(dx * dx + dy * dy);
     if (len < 0.001 || dy > -0.02) return; // 위쪽으로만
-    const speed = 0.03;
+    const speed = 0.05; // 더 빠르게
     _vx = dx / len * speed;
     _vy = dy / len * speed;
     _px = 0.5;

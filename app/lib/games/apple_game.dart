@@ -145,8 +145,8 @@ class _AppleGameState extends State<AppleGame> {
                 FilledButton(onPressed: _start, child: Text(_score > 0 ? '다시' : '시작')),
               ]),
             )
-          : Padding(
-              padding: const EdgeInsets.all(8),
+          : SafeArea(
+              minimum: const EdgeInsets.fromLTRB(16, 8, 16, 24), // 화면 가장자리(홈/뒤로가기 제스처)와 겹치지 않게
               child: LayoutBuilder(builder: (context, box) {
                 final w = box.maxWidth, h = box.maxHeight;
                 final cw = w / _cols, ch = h / _rows;

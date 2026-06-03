@@ -559,10 +559,10 @@ class _AvocadoPainter extends CustomPainter {
       _nebula(canvas, Offset(w * 0.55, h * 0.72), w * 0.30, const Color(0xFF26C6DA), n9 * 0.7);
     }
 
-    // 12000+: 커다란 토성(고리 행성)
-    final s12 = ((score - 12000) / 200).clamp(0.0, 1.0);
-    if (s12 > 0.01) {
-      _drawSaturn(canvas, Offset(w * 0.74, h * 0.70), w * 0.12, s12);
+    // 12000+: 귀여운 로켓이 둥둥 떠다님
+    final r12 = ((score - 12000) / 200).clamp(0.0, 1.0);
+    if (r12 > 0.01) {
+      _drawRocket(canvas, w, h, r12);
     }
 
     // 15000+: 하트 별자리(커플 피날레 ✨)
@@ -599,18 +599,44 @@ class _AvocadoPainter extends CustomPainter {
     canvas.drawCircle(c, r * 0.36, Paint()..color = color.withValues(alpha: 0.20 * alpha));
   }
 
-  void _drawSaturn(Canvas canvas, Offset c, double r, double alpha) {
-    canvas.drawCircle(c, r, Paint()..color = const Color(0xFFFFCC80).withValues(alpha: alpha));
-    canvas.drawCircle(c + Offset(-r * 0.3, -r * 0.3), r * 0.38, Paint()..color = Colors.white.withValues(alpha: 0.18 * alpha));
+  // 귀여운 로켓: 오른쪽에서 살짝 흔들리며 떠다니고 불꽃이 깜빡인다(벡터, 가볍다).
+  void _drawRocket(Canvas canvas, double w, double h, double alpha) {
+    final bob = sin(g._frame * 0.05) * w * 0.02;
+    final s = w * 0.06;
     canvas.save();
-    canvas.translate(c.dx, c.dy);
-    canvas.rotate(-0.5);
-    canvas.drawOval(
-        Rect.fromCenter(center: Offset.zero, width: r * 3.6, height: r * 1.1),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = r * 0.16
-          ..color = const Color(0xFFFFE0B2).withValues(alpha: alpha));
+    canvas.translate(w * 0.76 + bob, h * 0.66);
+    // 불꽃(깜빡임)
+    final flick = 0.7 + 0.3 * sin(g._frame * 0.4);
+    canvas.drawPath(
+        Path()
+          ..moveTo(-s * 0.34, s * 0.95)
+          ..quadraticBezierTo(0, s * (1.55 + 0.5 * flick), s * 0.34, s * 0.95)
+          ..close(),
+        Paint()..color = const Color(0xFFFFA726).withValues(alpha: 0.9 * alpha));
+    canvas.drawPath(
+        Path()
+          ..moveTo(-s * 0.2, s * 0.95)
+          ..quadraticBezierTo(0, s * (1.25 + 0.4 * flick), s * 0.2, s * 0.95)
+          ..close(),
+        Paint()..color = const Color(0xFFFFEB3B).withValues(alpha: 0.95 * alpha));
+    // 몸통
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: s * 0.9, height: s * 1.9), Radius.circular(s * 0.45)),
+        Paint()..color = Colors.white.withValues(alpha: alpha));
+    // 코(빨강)
+    canvas.drawPath(
+        Path()
+          ..moveTo(-s * 0.45, -s * 0.5)
+          ..quadraticBezierTo(0, -s * 1.45, s * 0.45, -s * 0.5)
+          ..close(),
+        Paint()..color = const Color(0xFFEF5350).withValues(alpha: alpha));
+    // 핀(양옆 빨강)
+    final fin = Paint()..color = const Color(0xFFEF5350).withValues(alpha: alpha);
+    canvas.drawPath(Path()..moveTo(-s * 0.45, s * 0.4)..lineTo(-s * 0.85, s * 0.95)..lineTo(-s * 0.45, s * 0.95)..close(), fin);
+    canvas.drawPath(Path()..moveTo(s * 0.45, s * 0.4)..lineTo(s * 0.85, s * 0.95)..lineTo(s * 0.45, s * 0.95)..close(), fin);
+    // 창문(파랑)
+    canvas.drawCircle(Offset(0, -s * 0.15), s * 0.28, Paint()..color = const Color(0xFF42A5F5).withValues(alpha: alpha));
+    canvas.drawCircle(Offset(-s * 0.08, -s * 0.23), s * 0.1, Paint()..color = Colors.white.withValues(alpha: 0.7 * alpha));
     canvas.restore();
   }
 
