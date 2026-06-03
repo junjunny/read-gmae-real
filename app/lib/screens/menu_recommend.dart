@@ -4,7 +4,7 @@ import '../app_state.dart';
 import '../services/gemini_service.dart';
 import '../services/points_service.dart';
 
-/// 메뉴 추천: 아주 세세한 질문에 답하면 Gemini가 진짜 참고가 되는
+/// 메뉴 추천: 아주 세세한 "객관식" 질문에 답하면 Gemini가 진짜 참고가 되는
 /// 구조화된 추천(메인+대안+가격+어디서/어떻게+페어링+꿀팁+식단/주의)을 준다.
 class MenuRecommendScreen extends StatefulWidget {
   const MenuRecommendScreen({super.key});
@@ -21,9 +21,11 @@ class _QA {
   const _QA(this.key, this.q, this.options, {this.multi = false, this.req = true});
 }
 
+// 모두 객관식. 자유 서술은 '지역/동네'(현실 맛집 반영용) 하나만 선택 입력으로 둔다.
 const _questions = <_QA>[
   _QA('누구와', '누구랑 먹어?', ['혼자', '연인(데이트)', '친구', '가족', '직장/동료', '모임/여럿']),
   _QA('인원', '총 몇 명?', ['1명', '2명', '3~4명', '5명 이상']),
+  _QA('중요도', '이번 끼니의 무게는?', ['빨리 때우기', '그냥 한 끼', '제대로 한 끼', '특별한 날']),
   _QA('방식', '어떻게 먹을까?', ['배달', '외식(나가서)', '직접 요리', '포장/픽업', '밀키트', '편의점/간편식']),
   _QA('시간대', '시간대는?', ['아침', '브런치', '점심', '저녁', '야식', '간식/디저트']),
   _QA('예산', '1인 예산은?', ['~7천원', '~1.2만원', '~2만원', '~3만원', '3만원+']),
@@ -33,18 +35,40 @@ const _questions = <_QA>[
     '한식', '중식', '일식', '양식', '분식', '아시안(태국·베트남)', '멕시칸',
     '패스트푸드', '고기/구이', '면/국물', '해산물', '치킨', '디저트/카페', '아무거나'
   ], multi: true),
+  _QA('맛취향', '끌리는 맛은? (여러 개 가능, 선택)', [
+    '단짠', '담백·슴슴', '감칠맛·짭짤', '새콤·상큼', '고소·구수', '진하고 자극적'
+  ], multi: true, req: false),
+  _QA('식감', '끌리는 식감은? (여러 개 가능, 선택)', [
+    '바삭한', '쫄깃한', '부드러운', '국물·촉촉한', '상관없음'
+  ], multi: true, req: false),
   _QA('맵기', '맵기는?', ['안 매움', '약간', '보통', '맵게', '아주 맵게']),
   _QA('온도', '온도/스타일?', ['뜨끈한 국물', '따뜻한', '시원한/찬', '상관없음']),
   _QA('상황', '상황/기분은?', [
     '평범한 끼니', '데이트', '야식', '해장', '기념일', '스트레스 해소', '가볍게', '든든하게', '입맛 없음'
   ]),
+  _QA('속상태', '지금 속 상태는? (선택)', [
+    '멀쩡', '속이 더부룩', '숙취·해장 필요', '기운 없음', '소화 잘 되는 걸로'
+  ], req: false),
   _QA('식단목표', '식단 목표는?', ['상관없음', '다이어트(저칼로리)', '단백질/벌크업', '건강식', '든든·고칼로리']),
   _QA('조리시간', '조리/대기 시간 여유?', ['10분 내 빨리', '30분 정도', '여유 있음']),
+  _QA('새로움', '새로운 메뉴 도전? (선택)', ['익숙한 게 좋아', '가끔 새로운 거', '모험 환영']),
+  _QA('식후일정', '먹고 난 뒤 일정은? (선택)', ['상관없음', '바로 약속/미팅(냄새·마늘 주의)', '곧 잘 예정']),
   _QA('날씨', '오늘 날씨는? (선택)', ['덥고 습함', '춥고 쌀쌀', '비/눈', '선선/평범'], req: false),
   _QA('술음료', '술/음료 곁들임? (선택)', [
     '생각 없음', '소주', '맥주', '와인', '막걸리', '하이볼', '무알콜/탄산', '커피/차'
   ], req: false),
-  _QA('제한', '식이 제한 (여러 개 가능, 선택)', [
+  _QA('추가취향', '추가로 원하는 건? (여러 개 가능, 선택)', [
+    '상관없음', '단백질 듬뿍', '국물 있는 거', '술안주로', '디저트까지', '든든하게',
+    '담백하게', '자극적인 거', '혼자 먹기 편한 거', '간단·빠르게'
+  ], multi: true, req: false),
+  _QA('회피재료', '빼고 싶은 재료/스타일 (여러 개 가능, 선택)', [
+    '없음', '오이', '고수', '가지', '피망/파프리카', '당근', '내장/곱창',
+    '회/날것', '비린 것', '느끼한 것', '향 강한 향신료'
+  ], multi: true, req: false),
+  _QA('최근장르', '최근 먹어서 피하고 싶은 것 (여러 개 가능, 선택)', [
+    '없음', '치킨', '피자', '햄버거', '한식', '중식', '일식', '분식', '고기/구이', '면류'
+  ], multi: true, req: false),
+  _QA('제한', '식이 제한/알레르기 (여러 개 가능, 선택)', [
     '없음', '채식/비건', '글루텐프리', '유당 불가', '해산물 알레르기', '견과류 알레르기', '돼지고기 X', '소고기 X'
   ], multi: true, req: false),
 ];
@@ -58,10 +82,7 @@ class _MenuRecommendScreenState extends State<MenuRecommendScreen> {
 
   final _points = PointsService();
   final _keyCtrl = TextEditingController();
-  final _locationCtrl = TextEditingController(); // 지역/동네
-  final _avoidCtrl = TextEditingController(); // 싫어하는/못 먹는 재료
-  final _recentCtrl = TextEditingController(); // 최근 먹은 것
-  final _extraCtrl = TextEditingController(); // 그 외 자유 요청
+  final _locationCtrl = TextEditingController(); // 지역/동네(유일한 선택 입력)
   bool _checkingKey = true;
   bool _hasKey = false;
   bool _savingKey = false;
@@ -76,9 +97,6 @@ class _MenuRecommendScreenState extends State<MenuRecommendScreen> {
   void dispose() {
     _keyCtrl.dispose();
     _locationCtrl.dispose();
-    _avoidCtrl.dispose();
-    _recentCtrl.dispose();
-    _extraCtrl.dispose();
     super.dispose();
   }
 
@@ -126,6 +144,18 @@ class _MenuRecommendScreenState extends State<MenuRecommendScreen> {
 
   String _selectedText(int i) => _ans[i].map((j) => _questions[i].options[j]).join(', ');
 
+  // key 기반 조회(질문 순서를 바꿔도 안전)
+  int _qi(String key) => _questions.indexWhere((q) => q.key == key);
+  bool _hasAns(String key) {
+    final i = _qi(key);
+    return i >= 0 && _ans[i].isNotEmpty;
+  }
+
+  String _ansText(String key) {
+    final i = _qi(key);
+    return (i >= 0 && _ans[i].isNotEmpty) ? _selectedText(i) : '';
+  }
+
   Future<void> _recommend() async {
     setState(() {
       _loading = true;
@@ -137,32 +167,27 @@ class _MenuRecommendScreenState extends State<MenuRecommendScreen> {
           if (_ans[i].isNotEmpty) '- ${_questions[i].key}: ${_selectedText(i)}'
       ].join('\n');
 
-      final method = _ans[2].isNotEmpty ? _questions[2].options[_ans[2].first] : '외식';
+      final method = _hasAns('방식') ? _ansText('방식') : '외식';
       final location = _locationCtrl.text.trim();
-      final avoid = _avoidCtrl.text.trim();
-      final recent = _recentCtrl.text.trim();
-      final extra = _extraCtrl.text.trim();
-
       final extras = [
         if (location.isNotEmpty) '- 지역/동네: $location',
-        if (avoid.isNotEmpty) '- 싫어함/못 먹는 재료(반드시 제외): $avoid',
-        if (recent.isNotEmpty) '- 최근 먹은 것(중복 회피): $recent',
-        if (extra.isNotEmpty) '- 추가 요청: $extra',
       ].join('\n');
+      final withDrink = _hasAns('술음료') && _ansText('술음료') != '생각 없음';
 
-      final prompt = '''너는 한국 실정에 빠삭한 음식 메뉴 컨설턴트야. 아래 사람의 조건을 "전부" 정밀하게 반영해서, 지금 바로 실행 가능한 추천을 해줘. 두루뭉술하지 말고 구체적이고 현실적으로.
+      final prompt = '''너는 한국 실정에 빠삭한 음식 메뉴 컨설턴트야. 아래 사람의 객관식 응답을 "전부" 정밀하게 반영해서, 지금 바로 실행 가능한 추천을 해줘. 두루뭉술하지 말고 구체적이고 현실적으로.
 
 [사용자 조건]
 $qa
 ${extras.isEmpty ? '' : '\n[추가 정보]\n$extras'}
 
 [반드시 지킬 규칙]
-1. "$method" 방식으로 실제 가능한 메뉴만. 배달이면 한국에서 진짜 배달되는 것만(샤브샤브·오마카세·뷔페 등 배달 어려운 건 배달일 때 제외). 직접요리면 난이도와 조리시간을 조리 여유에 맞춰. 편의점/간편식이면 실제 편의점·마트에서 살 수 있는 제품류로.
-2. 인원·예산·양·배고픔을 숫자로 현실적으로 맞춰(가격은 한국 2024~2025 시세 기준 대략값).
-3. 맵기·온도·식단 목표·식이 제한·알레르기·싫어하는 재료를 절대 위반하지 마. 제한이 있으면 그걸 지키는 선에서 골라.
-4. 상황/기분/시간대/날씨에 어울리게(예: 비 오면 전·국물, 더우면 시원한 것, 해장이면 속 풀리는 것, 데이트면 분위기).
-5. 최근 먹은 것과 겹치지 말고, 뻔한 치킨·피자 반복 금지. 센스 있게, 가끔 구체적 메뉴명/프랜차이즈/가게 유형까지.
-6. 지역이 있으면 그 동네에서 현실적으로(배달앱 카테고리나 가게 유형 수준으로). 없는 가게명·전화번호·URL을 지어내지 마.
+1. "$method" 방식으로 실제 가능한 메뉴만. 배달이면 한국에서 진짜 배달되는 것만(샤브샤브·오마카세·뷔페 등 배달 어려운 건 배달일 때 제외). 직접요리/밀키트면 난이도와 조리시간을 '조리시간'에 맞춰. 편의점/간편식이면 실제 편의점·마트에서 살 수 있는 제품 조합으로.
+2. 인원·예산·양·배고픔·중요도를 숫자로 현실적으로 맞춰(가격은 한국 2024~2025 시세 대략값). '특별한 날'이면 격을, '빨리 때우기'면 속도를 우선.
+3. 맵기·온도·맛취향·식감·식단목표·식이 제한·알레르기·회피재료를 절대 위반하지 마. 제한/회피가 있으면 그걸 지키는 선에서 골라.
+4. 상황·기분·시간대·날씨·속상태에 어울리게(예: 비 오면 전·국물, 더우면 시원한 것, 해장/더부룩하면 속 편한 것, 숙취면 해장, 기운 없으면 보양, 데이트면 분위기).
+5. '최근장르'와 겹치지 말고, '새로움' 성향에 맞춰(익숙↔모험). 뻔한 치킨·피자 반복 금지. 가끔 구체적 메뉴명/프랜차이즈/가게 유형까지.
+6. '식후일정'이 약속/미팅이면 마늘·냄새 강한 것 피하기. '곧 잘 예정'이면 너무 자극적·과식 메뉴 자제.
+7. '추가취향'을 반영. 지역이 있으면 그 동네 기준으로 현실적으로(배달앱 카테고리/가게 유형 수준). 없는 가게명·전화번호·URL을 지어내지 마.
 
 [출력 형식] 아래 틀을 "그대로" 써. 마크다운(#, **) 쓰지 말고 이모지 줄로. 한국어로, 친근하지만 정확하게.
 
@@ -170,7 +195,7 @@ ${extras.isEmpty ? '' : '\n[추가 정보]\n$extras'}
 💬 이유: (이 조건들에 왜 딱인지 2~3줄, 조건을 실제로 엮어서)
 💰 예상 비용: (1인 약 X원 / 총 Y원, 인원 반영)
 📍 어디서·어떻게: ($method 기준 구체적으로 — 배달앱 카테고리/프랜차이즈 후보/가게 유형, 직접요리면 핵심 재료와 조리 N분, 편의점이면 제품 조합)
-🍴 곁들임/페어링: (사이드·음료${_ans[14].isNotEmpty ? '·술' : ''} 추천)
+🍴 곁들임/페어링: (사이드·음료${withDrink ? '·술' : ''} 추천)
 👩‍🍳 주문·조리 꿀팁: (실전 팁 1~2개 — 옵션 선택, 소스, 익힘 정도 등)
 
 🔁 대안 2가지:
@@ -178,7 +203,7 @@ ${extras.isEmpty ? '' : '\n[추가 정보]\n$extras'}
 3) (메뉴) — (한 줄 이유) · 약 X원
 
 🥗 식단 코멘트: (식단 목표가 '상관없음'이 아니면 칼로리/단백질 등 한 줄, 아니면 "—")
-⚠️ 참고/주의: (맵기·알레르기·제한·최근 먹은 것 반영해서 무엇을 피했는지 한 줄)''';
+⚠️ 참고/주의: (맵기·알레르기·제한·회피재료·최근장르 반영해서 무엇을 피했는지 한 줄)''';
 
       final res = await GeminiService.generate(prompt, model: 'gemini-flash-latest');
       setState(() => _result = res);
@@ -195,9 +220,6 @@ ${extras.isEmpty ? '' : '\n[추가 정보]\n$extras'}
         s.clear();
       }
       _locationCtrl.clear();
-      _avoidCtrl.clear();
-      _recentCtrl.clear();
-      _extraCtrl.clear();
       _result = null;
       _error = null;
     });
@@ -225,16 +247,13 @@ ${extras.isEmpty ? '' : '\n[추가 정보]\n$extras'}
             color: Colors.orange.shade50,
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Text('🔎 더 자세히 답할수록 추천이 정확해져요. (필수 $answeredReq/$totalReq)\n선택 항목·자유 입력까지 채우면 진짜 참고가 되는 답이 나와요.',
+              child: Text('🔎 객관식으로 자세히 고를수록 추천이 정확해져요. (필수 $answeredReq/$totalReq)\n선택 항목까지 채우면 진짜 살면서 참고되는 답이 나와요.',
                   style: const TextStyle(fontSize: 13)),
             ),
           ),
           const SizedBox(height: 8),
           for (var i = 0; i < _questions.length; i++) _buildQ(i),
           _textCard('📍 지역/동네 (선택)', _locationCtrl, '예: 서울 강남, 부산 서면 — 배달·맛집 현실 반영'),
-          _textCard('🚫 싫어함/못 먹는 재료 (선택)', _avoidCtrl, '예: 오이, 고수, 내장, 회 빼고'),
-          _textCard('🕘 최근 먹은 것 (선택)', _recentCtrl, '예: 어제 치킨, 점심 김치찌개 — 중복 회피'),
-          _textCard('✍️ 그 외 요청 (선택)', _extraCtrl, '예: 단백질 많이, 혼술 안주, 디저트까지'),
           const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: (answered && !_loading) ? _recommend : null,
