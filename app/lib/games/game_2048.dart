@@ -223,22 +223,6 @@ class _Game2048State extends State<Game2048> {
                 ),
               ),
             ),
-      bottomNavigationBar: (_started && !_over)
-          ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _btn(Icons.arrow_left, () => _move(0)),
-                    _btn(Icons.arrow_drop_up, () => _move(2)),
-                    _btn(Icons.arrow_drop_down, () => _move(3)),
-                    _btn(Icons.arrow_right, () => _move(1)),
-                  ],
-                ),
-              ),
-            )
-          : null,
     );
   }
 
@@ -314,6 +298,4 @@ class _Game2048State extends State<Game2048> {
       ),
     );
   }
-
-  Widget _btn(IconData i, VoidCallback f) => IconButton.filledTonal(onPressed: f, iconSize: 30, icon: Icon(i));
 }

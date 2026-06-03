@@ -127,14 +127,15 @@ void main() {
     await teardown(tester);
   });
 
-  testWidgets('⑥ 2048: 방향 이동 다수 → 크래시 없이 진행', (tester) async {
+  testWidgets('⑥ 2048: 스와이프 이동 다수 → 크래시 없이 진행', (tester) async {
     var finished = false;
     await mount(tester, Game2048(onFinish: (s) => finished = true));
     await tapStart(tester);
-    const dirs = [Icons.arrow_left, Icons.arrow_drop_up, Icons.arrow_right, Icons.arrow_drop_down];
-    for (var i = 0; i < 240 && !finished; i++) {
-      await tester.tap(find.byIcon(dirs[i % 4]), warnIfMissed: false);
-      await tester.pump(const Duration(milliseconds: 10));
+    // 하단 버튼 제거 → 스와이프(플링)로만 이동
+    const dirs = [Offset(-300, 0), Offset(0, -300), Offset(300, 0), Offset(0, 300)];
+    for (var i = 0; i < 16 && !finished; i++) {
+      await tester.fling(find.byType(GestureDetector).first, dirs[i % 4], 1000);
+      await tester.pump(const Duration(milliseconds: 220)); // 슬라이드+합체 애니메이션 경과
     }
     // 보드/점수 표시가 살아있음(진행 중이면 상단바 1개, 게임오버면 +오버레이)
     expect(find.textContaining('점수'), findsWidgets);
