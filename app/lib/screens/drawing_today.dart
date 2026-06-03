@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../app_state.dart';
 import '../models/entry.dart';
+import '../services/image_export.dart';
 import '../services/room_service.dart';
 import '../services/session_prefs.dart';
 import '../util/daily_topic.dart';
@@ -119,7 +121,17 @@ class _TodayEntries extends StatelessWidget {
                     child: Column(
                       children: [
                         AspectRatio(aspectRatio: 1.4, child: EntryImage(b64: e.imageB64)),
-                        ListTile(leading: const Icon(Icons.brush), title: Text(e.author), subtitle: Text(DateFormat('HH:mm').format(e.createdAt))),
+                        ListTile(
+                          leading: const Icon(Icons.brush),
+                          title: Text(e.author),
+                          subtitle: Text(DateFormat('HH:mm').format(e.createdAt)),
+                          trailing: OutlinedButton.icon(
+                            onPressed: () => _save(context, e),
+                            icon: const Icon(Icons.download, size: 18),
+                            label: const Text('저장'),
+                            style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                          ),
+                        ),
                       ],
                     ),
                   )),
@@ -127,6 +139,18 @@ class _TodayEntries extends StatelessWidget {
         );
       },
     );
+  }
+
+  // 그림(base64 PNG)을 저장 — 웹은 브라우저 다운로드, 모바일은 사진첩.
+  Future<void> _save(BuildContext context, Entry e) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final bytes = base64Decode(e.imageB64);
+      final ok = await saveImageBytes(bytes, '오늘의그림_${e.author}_$date.png');
+      messenger.showSnackBar(SnackBar(content: Text(ok ? '${e.author}님 그림을 저장했어요 💾' : '저장에 실패했어요')));
+    } catch (err) {
+      messenger.showSnackBar(SnackBar(content: Text('저장 실패: $err')));
+    }
   }
 }
 
