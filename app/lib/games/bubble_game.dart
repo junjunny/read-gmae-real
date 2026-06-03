@@ -40,6 +40,24 @@ class _BubbleGameState extends State<BubbleGame> {
   bool _running = false;
   Timer? _loop;
 
+  // 조준(누르고 있는 동안 점선 궤적 표시 → 떼면 발사)
+  double _aimX = 0.5, _aimY = 0;
+  bool _aiming = false;
+
+  void _aim(double tx, double ty) {
+    if (!_running || _flying) return;
+    _aimX = tx;
+    _aimY = ty;
+    _aiming = ty < (_h - _rad) - 0.02; // 위쪽을 향할 때만 궤적 표시
+    setState(() {});
+  }
+
+  void _release() {
+    if (_running && !_flying && _aiming) _shoot(_aimX, _aimY);
+    _aiming = false;
+    setState(() {});
+  }
+
   void _start() {
     _grid = List.generate(_maxRows, (_) => List.filled(_cols, -1));
     for (var r = 0; r < 4; r++) {
@@ -138,7 +156,7 @@ class _BubbleGameState extends State<BubbleGame> {
     if (shot == _rainbow) {
       // 🌈 만능 버블: 닿는 모든 색의 연결 그룹을 통째로 터뜨린다(색 구분 없이 상호작용).
       final remove = <String>{};
-      for (final nb in _neighbors(row, col)) {
+      for (final nb in _around8(row, col)) {
         final v = _grid[nb[0]][nb[1]];
         if (v >= 0) {
           for (final p in _flood(nb[0], nb[1], v)) {
@@ -192,6 +210,7 @@ class _BubbleGameState extends State<BubbleGame> {
     return null;
   }
 
+  // 천장 연결성 판정용(상하좌우 4방향).
   List<List<int>> _neighbors(int r, int c) {
     final res = <List<int>>[];
     for (final d in const [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
@@ -201,7 +220,21 @@ class _BubbleGameState extends State<BubbleGame> {
     return res;
   }
 
-  // 같은 색 연결 그룹(4방향)
+  // 매치 판정용(대각선 포함 8방향) — 사각 격자라 대각선으로 닿은 같은 색이
+  // 안 터지던(씹히던) 문제를 해결한다.
+  List<List<int>> _around8(int r, int c) {
+    final res = <List<int>>[];
+    for (var dr = -1; dr <= 1; dr++) {
+      for (var dc = -1; dc <= 1; dc++) {
+        if (dr == 0 && dc == 0) continue;
+        final nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < _maxRows && nc >= 0 && nc < _cols) res.add([nr, nc]);
+      }
+    }
+    return res;
+  }
+
+  // 같은 색 연결 그룹(대각선 포함 8방향)
   List<List<int>> _flood(int r, int c, int color) {
     final seen = <String>{};
     final stack = [[r, c]];
@@ -213,7 +246,7 @@ class _BubbleGameState extends State<BubbleGame> {
       seen.add(key);
       if (_grid[p[0]][p[1]] != color) continue;
       res.add(p);
-      stack.addAll(_neighbors(p[0], p[1]));
+      stack.addAll(_around8(p[0], p[1]));
     }
     return res;
   }
@@ -336,9 +369,12 @@ class _BubbleGameState extends State<BubbleGame> {
           }
         }
         final dotPx = _cell * w;
-        return GestureDetector(
+        return Listener(
           behavior: HitTestBehavior.opaque,
-          onTapDown: (d) => _shoot(d.localPosition.dx / w, d.localPosition.dy / w),
+          onPointerDown: (e) => _aim(e.localPosition.dx / w, e.localPosition.dy / w),
+          onPointerMove: (e) => _aim(e.localPosition.dx / w, e.localPosition.dy / w),
+          onPointerUp: (_) => _release(),
+          onPointerCancel: (_) => _release(),
           child: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -360,6 +396,22 @@ class _BubbleGameState extends State<BubbleGame> {
                         height: dotPx - 2,
                         child: _bubbleDot(_grid[r][c], dotPx),
                       ),
+                // 조준 점선 궤적(벽 반사 예측)
+                if (_running && _aiming && !_flying)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _AimPainter(
+                          grid: _grid,
+                          maxRows: _maxRows,
+                          aimX: _aimX,
+                          aimY: _aimY,
+                          h: _h,
+                          w: w,
+                        ),
+                      ),
+                    ),
+                  ),
                 // 발사체
                 if (_flying)
                   Positioned(
@@ -396,7 +448,7 @@ class _BubbleGameState extends State<BubbleGame> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(_score > 0 ? '게임 오버! 점수 $_score 🫧' : '화면을 탭한 방향으로 버블 발사!\n같은 색 3개+ 매치 · 🌈레인보우는 닿는 색 다 터뜨림!', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
+                          Text(_score > 0 ? '게임 오버! 점수 $_score 🫧' : '누른 방향으로 조준(점선) → 떼면 발사!\n같은 색 3개+ 매치 · 🌈레인보우는 닿는 색 다 터뜨림!', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
                           const SizedBox(height: 12),
                           FilledButton(onPressed: _start, child: Text(_score > 0 ? '다시' : '시작')),
                         ],
@@ -410,4 +462,67 @@ class _BubbleGameState extends State<BubbleGame> {
       }),
     );
   }
+}
+
+/// 조준 궤적(점선): 발사 시작점에서 조준 방향으로 벽 반사를 예측해 점을 찍는다.
+/// 게임 좌표(가로=1 기준) → 픽셀은 값 × w.
+class _AimPainter extends CustomPainter {
+  final List<List<int>> grid;
+  final int maxRows;
+  final double aimX, aimY, h, w;
+  _AimPainter({
+    required this.grid,
+    required this.maxRows,
+    required this.aimX,
+    required this.aimY,
+    required this.h,
+    required this.w,
+  });
+
+  static const int _cols = 9;
+  static const double _cell = 1.0 / _cols;
+  static const double _rad = _cell / 2;
+
+  bool _hits(double px, double py) {
+    for (var r = 0; r < grid.length; r++) {
+      for (var c = 0; c < _cols; c++) {
+        if (grid[r][c] == -1) continue;
+        final cx = (c + 0.5) * _cell, cy = (r + 0.5) * _cell;
+        final dx = px - cx, dy = py - cy;
+        if (dx * dx + dy * dy < pow(2 * _rad * 0.9, 2)) return true;
+      }
+    }
+    return false;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final startY = h - _rad;
+    var dx = aimX - 0.5, dy = aimY - startY;
+    final len = sqrt(dx * dx + dy * dy);
+    if (len < 0.001 || dy > -0.02) return;
+    dx /= len;
+    dy /= len;
+    var px = 0.5, py = startY;
+    const step = 0.01;
+    final dot = Paint()..color = Colors.white.withValues(alpha: 0.55);
+    for (var i = 0; i < 700; i++) {
+      px += dx * step;
+      py += dy * step;
+      if (px < _rad) {
+        px = _rad;
+        dx = dx.abs();
+      } else if (px > 1 - _rad) {
+        px = 1 - _rad;
+        dx = -dx.abs();
+      }
+      if (py <= _rad) break; // 천장
+      if (_hits(px, py)) break; // 버블에 닿으면 멈춤
+      if (i % 4 == 0) canvas.drawCircle(Offset(px * w, py * w), 3, dot);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _AimPainter old) =>
+      old.aimX != aimX || old.aimY != aimY || old.grid != grid;
 }

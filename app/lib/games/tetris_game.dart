@@ -217,46 +217,35 @@ class _TetrisGameState extends State<TetrisGame> {
         child: Column(
           children: [
             Expanded(
-              child: Stack(
-                children: [
-                  Center(
-                    child: AspectRatio(
-                      aspectRatio: _cols / _rows,
-                      child: Container(
-                        margin: const EdgeInsets.all(8),
-                        color: Colors.black87,
-                        child: _buildGrid(),
-                      ),
-                    ),
+              child: Center(
+                child: AspectRatio(
+                  aspectRatio: _cols / _rows,
+                  child: Container(
+                    margin: const EdgeInsets.all(8),
+                    color: Colors.black87,
+                    child: _buildGrid(),
                   ),
-                  // 홀드: 화면 위가 아니라 오른쪽 중하단에 배치
-                  if (_running)
-                    Positioned(
-                      right: 14,
-                      bottom: 16,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text('홀드 ', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
-                              _holdPreview(),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          FilledButton.tonalIcon(
-                            onPressed: _holdUsed ? null : _holdPiece,
-                            icon: const Icon(Icons.swap_vert, size: 18),
-                            label: const Text('홀드'),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
+                ),
               ),
             ),
+            // 홀드: 보드 아래 오른쪽(중하단). 보드와 겹치지 않게 별도 줄로 배치.
+            if (_running)
+              Padding(
+                padding: const EdgeInsets.only(right: 16, left: 16, top: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    const Text('홀드 ', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+                    _holdPreview(),
+                    const SizedBox(width: 12),
+                    FilledButton.tonalIcon(
+                      onPressed: _holdUsed ? null : _holdPiece,
+                      icon: const Icon(Icons.swap_vert, size: 18),
+                      label: const Text('홀드'),
+                    ),
+                  ],
+                ),
+              ),
             if (!_running)
               Padding(
                 padding: const EdgeInsets.all(8),

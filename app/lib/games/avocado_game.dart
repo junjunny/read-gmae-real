@@ -209,7 +209,9 @@ class _AvocadoGameState extends State<AvocadoGame> {
           Positioned.fill(
             child: Container(
               decoration: bgGradient(const [Color(0xFFE8F8E0), Color(0xFFB7E4C7)]),
-              child: CustomPaint(
+              child: RepaintBoundary(
+                child: CustomPaint(
+                size: Size.infinite,
                 painter: _AvocadoPainter(
                   x: _x,
                   ay: _ay,
@@ -223,6 +225,7 @@ class _AvocadoGameState extends State<AvocadoGame> {
                   invincible: _invincible,
                   frame: _frame,
                   running: _running,
+                  ),
                 ),
               ),
             ),
@@ -274,13 +277,10 @@ class _AvocadoGameState extends State<AvocadoGame> {
         alignment: align,
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Opacity(
-            opacity: 0.35,
-            child: CircleAvatar(
-              radius: 26,
-              backgroundColor: const Color(0xFF2E7D32),
-              child: Icon(icon, color: Colors.white, size: 34),
-            ),
+          child: CircleAvatar(
+            radius: 26,
+            backgroundColor: const Color(0x592E7D32), // 35% 불투명(saveLayer 없이)
+            child: Icon(icon, color: Colors.white.withValues(alpha: 0.6), size: 34),
           ),
         ),
       ),
@@ -339,18 +339,20 @@ class _AvocadoPainter extends CustomPainter {
     }
   }
 
+  // 색으로만 종류를 구분(가벼운 단색 렌더 — 렉 방지).
+  // 🟩 일반 · 🟧 흔들 · 🟥 부서짐 · 🟦 스프링.
   void _drawPlatform(Canvas canvas, _Plat p, double cx, double cy, double w) {
     final pw = 0.22 * w, ph = pw * 0.26;
     Color base;
     switch (p.type) {
       case _pMoving:
-        base = const Color(0xFFFFD54F);
+        base = const Color(0xFFFFB300);
         break;
       case _pBreak:
-        base = const Color(0xFFEF9A9A);
+        base = const Color(0xFFE53935);
         break;
       case _pSpring:
-        base = const Color(0xFF81C784);
+        base = const Color(0xFF26C6DA);
         break;
       default:
         base = const Color(0xFF66BB6A);
@@ -372,44 +374,7 @@ class _AvocadoPainter extends CustomPainter {
     }
 
     final rect = Rect.fromCenter(center: Offset(cx, cy + ph / 2), width: pw, height: ph);
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(rect.shift(const Offset(0, 2)), const Radius.circular(9)),
-        Paint()..color = Colors.black.withValues(alpha: 0.12));
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, const Radius.circular(9)),
-        Paint()
-          ..shader = LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color.lerp(base, Colors.white, 0.4)!, base, Color.lerp(base, Colors.black, 0.12)!],
-          ).createShader(rect));
-
-    if (p.type == _pSpring) {
-      // 스프링: 가운데 작은 코일
-      final sx = cx, sy = cy;
-      final coil = Paint()
-        ..color = const Color(0xFF455A64)
-        ..strokeWidth = 2.4
-        ..style = PaintingStyle.stroke;
-      final path = Path();
-      for (var i = 0; i <= 12; i++) {
-        final yy = sy - i * 1.0;
-        final xx = sx + (i.isEven ? -6 : 6);
-        if (i == 0) {
-          path.moveTo(xx, yy);
-        } else {
-          path.lineTo(xx, yy);
-        }
-      }
-      canvas.drawPath(path, coil);
-    } else if (p.type == _pBreak) {
-      // 금(크랙) 표시
-      final crack = Paint()
-        ..color = Colors.black.withValues(alpha: 0.25)
-        ..strokeWidth = 1.6;
-      canvas.drawLine(Offset(cx - 6, cy + 3), Offset(cx, cy + ph - 3), crack);
-      canvas.drawLine(Offset(cx + 8, cy + 3), Offset(cx + 3, cy + ph - 3), crack);
-    }
+    canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(9)), Paint()..color = base);
   }
 
   // 귀여운 아보카도(원 2개로 부드러운 실루엣 + 씨앗 + 눈/미소). vy로 살짝 늘어남.
@@ -461,20 +426,14 @@ class _AvocadoPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawArc(Rect.fromCenter(center: Offset(0, top.dy + topR * 0.32), width: topR * 0.7, height: topR * 0.5),
         0.15 * pi, 0.7 * pi, false, smile);
-    // 볼터치
-    final blush = Paint()..color = const Color(0x55FF8A80);
-    canvas.drawCircle(Offset(-topR * 0.6, top.dy + topR * 0.2), topR * 0.16, blush);
-    canvas.drawCircle(Offset(topR * 0.6, top.dy + topR * 0.2), topR * 0.16, blush);
-
     canvas.restore();
 
-    // 무적 글로우(무지개 링 + 반짝임)
+    // 무적 글로우(노란 링)
     if (invincible > 0) {
-      final hue = (frame * 6) % 360;
       final ring = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3
-        ..color = HSVColor.fromAHSV(0.9, hue.toDouble(), 0.7, 1).toColor();
+        ..color = const Color(0xFFFFD54F);
       canvas.drawCircle(c, size * 0.62, ring);
     }
   }
@@ -492,7 +451,6 @@ class _AvocadoPainter extends CustomPainter {
       }
     }
     path.close();
-    canvas.drawPath(path, Paint()..color = Colors.black.withValues(alpha: 0.15)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
     canvas.drawPath(path, Paint()..color = color);
     canvas.drawCircle(c, rad * 0.3, Paint()..color = Colors.white.withValues(alpha: 0.7));
   }
