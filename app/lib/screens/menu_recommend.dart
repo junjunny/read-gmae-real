@@ -247,7 +247,7 @@ ${extras.isEmpty ? '' : '\n[추가 정보]\n$extras'}
             color: Colors.orange.shade50,
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Text('🔎 객관식으로 자세히 고를수록 추천이 정확해져요. (필수 $answeredReq/$totalReq)\n선택 항목까지 채우면 진짜 살면서 참고되는 답이 나와요.',
+              child: Text('🍽️ 오늘 뭐 먹지? 고민될 때, 골라만 주세요.\n자세히 고를수록(선택 항목까지!) AI가 진짜 도움되는 메뉴를 콕 집어줘요. (필수 $answeredReq/$totalReq)',
                   style: const TextStyle(fontSize: 13)),
             ),
           ),
